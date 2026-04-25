@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Paleta Nexum Baseada na Imagem */
+    --color-powder: #b2cee2;
+    --color-lime: #d1d871;
+    --color-denim: #13233d;
+    --color-eggshell: #ecece5;
+    --color-cerulean: #3a4f99;
+    --color-olympic: #6299d0;
+  }
+}

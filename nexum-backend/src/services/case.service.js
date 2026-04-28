@@ -1,11 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-// FUNÇÃO 1: CRIAR CASO VINDO DA TRIAGEM DO CHAT
 async function createCaseFromTriage(dadosTriagem) {
-  // 1. Separação Inteligente (Desestruturação)
-  // Tiramos os dados fixos para criar o Cliente e o Caso.
-  // Tudo o que sobrar cai na variável "...respostasDinamicas"
   const {
     nome,
     cpf,
@@ -19,73 +15,65 @@ async function createCaseFromTriage(dadosTriagem) {
     data_admissao,
     data_demissao,
     salario,
-    office_id, // ID do escritório (vem do front-end ou do link da triagem)
-    lgpd,      // Tiramos o aceite da LGPD para não poluir o banco
+    office_id,
+    lgpd,
     ...respostasDinamicas
   } = dadosTriagem;
 
-  // Trava de segurança básica
-  if (!cpf || !nome) {
-    throw new Error("Campos obrigatórios (Nome e CPF) estão ausentes.");
+  if (!cpf || !nome || !office_id || !empresa || !funcao) {
+    throw new Error("Campos obrigatórios da triagem estão ausentes.");
   }
 
-  // 2. Limpeza do Salário (De "R$ 18.000,00" para 18000.00)
   let salarioNumerico = null;
   if (salario) {
-    salarioNumerico = parseFloat(salario.replace(/[^\d,]/g, '').replace(',', '.'));
+    salarioNumerico = parseFloat(String(salario).replace(/[^\d,]/g, "").replace(",", "."));
   }
 
-  // 3. Transação Segura: Se algo der errado, ele cancela tudo e não salva pela metade
   const novoCaso = await prisma.$transaction(async (tx) => {
-    
-    // A) Salva ou Atualiza o Cliente baseado no CPF
     const user = await tx.user.upsert({
-      where: { cpf: cpf },
+      where: { cpf },
       update: {
         phone: telefone,
-        email: email, // Atualiza contatos se o cliente já existir no banco
+        email,
       },
       create: {
         name: nome,
-        cpf: cpf,
-        rg: rg,
+        cpf,
+        rg,
         phone: telefone,
-        email: email,
-        addresses: {
-          create: { cep: cep, full_address: endereco_compl }
-        }
-      }
+        email,
+        addresses: cep || endereco_compl
+          ? {
+              create: {
+                cep: cep || "00000-000",
+                full_address: endereco_compl || "Não informado",
+              },
+            }
+          : undefined,
+      },
     });
 
-    // Como você ainda vai configurar o login dos escritórios, 
-    // coloquei um ID padrão só para o banco não dar erro caso o front não envie.
-    const validOfficeId = office_id || "ESCRITORIO_PADRAO_TESTE";
-
-    // B) Cria o Caso Principal
     const caseEntity = await tx.case.create({
       data: {
         user_id: user.id,
-        office_id: validOfficeId,
+        office_id,
         company: empresa,
         role: funcao,
         admission_date: data_admissao ? new Date(data_admissao) : null,
         resignation_date: data_demissao ? new Date(data_demissao) : null,
         salary: salarioNumerico,
         status: "NOVO",
-      }
+      },
     });
 
-    // C) Salva as respostas dinâmicas no banco de dados
     const arrayDeRespostas = Object.entries(respostasDinamicas).map(([campo, valor]) => ({
       case_id: caseEntity.id,
       field_name: campo,
-      value: String(valor)
+      value: String(valor),
     }));
 
     if (arrayDeRespostas.length > 0) {
-      await tx.triageResponse.createMany({
-        data: arrayDeRespostas
-      });
+      await tx.triageResponse.createMany({ data: arrayDeRespostas });
     }
 
     return caseEntity;
@@ -94,29 +82,31 @@ async function createCaseFromTriage(dadosTriagem) {
   return novoCaso;
 }
 
-// FUNÇÃO 2: LISTAR OS CASOS NO DASHBOARD DO ADVOGADO
 async function getCasesByOffice(officeId) {
+  const filtros = officeId ? { office_id: officeId } : {};
+
   const casos = await prisma.case.findMany({
-    where: {
-      office_id: officeId
-    },
-    // Traz os dados do Cliente junto com a busca do Caso
+    where: filtros,
     include: {
       user: {
         select: {
           name: true,
-          cpf: true,
-          phone: true
-        }
-      }
+        },
+      },
     },
     orderBy: {
-      created_at: 'desc'
-    }
+      created_at: "desc",
+    },
   });
 
-  return casos;
+  return casos.map((caso) => ({
+    id: caso.id,
+    cliente_nome: caso.user?.name || "Não informado",
+    tipo_caso: "Trabalhista",
+    status: caso.status,
+    empresa: caso.company,
+    criado_em: caso.created_at,
+  }));
 }
 
-// Exportando as duas funções para serem usadas nos controllers
 module.exports = { createCaseFromTriage, getCasesByOffice };

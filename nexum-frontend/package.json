@@ -6,6 +6,7 @@
     "init-tw": "tailwindcss init -p"
   },
   "dependencies": {
+    "lucide-react": "^1.12.0",
     "react-router-dom": "^7.14.2"
   },
   "devDependencies": {

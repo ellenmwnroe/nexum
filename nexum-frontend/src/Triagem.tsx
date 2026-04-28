@@ -84,7 +84,7 @@ function Triagem() {
     setInputValue('');
 
     // Árvore de Decisão
-    setTimeout(() => {
+    setTimeout(async () => {
       if (passoAtual === 'lgpd') {
         if (valorParaBanco === 'nao') {
           setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Compreendo. Atendimento encerrado por segurança.' }]);
@@ -193,9 +193,37 @@ function Triagem() {
         setPassoAtual('observacoes');
       }
       else if (passoAtual === 'observacoes') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Sua ficha foi gerada com sucesso e enviada ao advogado de forma segura.' }]);
-        setPassoAtual('fim');
-        console.log('✅ FICHA COMPLETA PARA O BACKEND:', novasRespostas);
+        // 1. Damos um feedback visual para o utilizador não achar que travou
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'A encriptar e a guardar os seus dados. Um momento, por favor...' }]);
+        
+        try {
+          // 2. Preparamos o objeto final. O 'office_id' pode vir da URL no futuro.
+          const payloadDaTriagem = {
+            ...novasRespostas,
+            office_id: "escritorio-teste" // Usamos o mesmo que configurou no back-end
+          };
+
+          // 3. Chamamos a sua API (ajuste a porta 3000 se o seu Node estiver noutra)
+          const respostaApi = await fetch('http://localhost:3000/api/triagem', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payloadDaTriagem)
+          });
+
+          if (!respostaApi.ok) {
+            throw new Error('Falha ao comunicar com o servidor');
+          }
+
+          // 4. Se deu tudo certo no Prisma, mostramos a mensagem de sucesso!
+          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Muito obrigado! A sua ficha foi gerada com sucesso e enviada ao advogado de forma segura.' }]);
+          setPassoAtual('fim');
+
+        } catch (erro) {
+          console.error(erro);
+          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Houve um problema de ligação. A equipa técnica já foi notificada.' }]);
+        }
       }
     }, 850);
   };

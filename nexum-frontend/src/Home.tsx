@@ -15,7 +15,7 @@ const Home = () => {
           <span className="text-2xl font-bold text-[#13233d] tracking-tight">NEXUM</span>
         </div>
         <button 
-          onClick={() => navigate('/login')}
+          onClick={() => navigate('/dashboard')}
           className="text-[#3a4f99] font-semibold hover:text-[#13233d] transition-colors"
         >
           Área do Advogado

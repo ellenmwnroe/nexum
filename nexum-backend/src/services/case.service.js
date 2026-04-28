@@ -88,25 +88,17 @@ async function getCasesByOffice(officeId) {
   const casos = await prisma.case.findMany({
     where: filtros,
     include: {
-      user: {
-        select: {
-          name: true,
-        },
-      },
+      user: true, // Agora traz o nome, CPF, etc.
+      triage_responses: true, // Traz todas as respostas do bot!
     },
     orderBy: {
       created_at: "desc",
     },
   });
 
-  return casos.map((caso) => ({
-    id: caso.id,
-    cliente_nome: caso.user?.name || "Não informado",
-    tipo_caso: "Trabalhista",
-    status: caso.status,
-    empresa: caso.company,
-    criado_em: caso.created_at,
-  }));
+  // Removemos aquele .map() antigo que estava "escondendo" os dados.
+  // Agora o React vai receber o objeto completo exatamente como está no banco de dados.
+  return casos;
 }
 
 module.exports = { createCaseFromTriage, getCasesByOffice };

@@ -204,7 +204,7 @@ function Triagem() {
           };
 
           // 3. Chamamos a sua API (ajuste a porta 3000 se o seu Node estiver noutra)
-          const respostaApi = await fetch('http://localhost:3000/api/triagem', {
+          const respostaApi = await fetch('http://localhost:3000/triagem', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

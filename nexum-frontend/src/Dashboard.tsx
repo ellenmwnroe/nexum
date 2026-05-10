@@ -42,11 +42,33 @@ function Dashboard() {
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
 
-  // 🚀 A MÁGICA DA NAVEGAÇÃO ACONTECE AQUI
   // Se tiver um caso aberto, esconde o Dashboard e mostra o Dossiê
   if (casoAberto) {
     return <DetalhesDoCaso casoBruto={casoAberto} onVoltar={() => setCasoAberto(null)} />;
   }
+
+  const dicionarioTriagem: Record<string, string> = {
+    carteira_assinada: "Trabalhava com carteira assinada?",
+    salario_por_fora: "Recebia algum valor por fora?",
+    subordinacao: "Havia subordinação e horário fixo?",
+    horas_extras: "Fazia horas extras?",
+    fgts_rescisao: "Situação do FGTS e Rescisão",
+    situacao: "Como se deu o fim do vínculo?",
+    condicoes_trabalho: "Sofreu algum tipo de assédio/risco?",
+    verbas_pendentes: "Ficaram verbas pendentes?",
+    observacoes: "Observações adicionais do cliente",
+    upload_docs: "Documentos anexados"
+  };
+
+  // Formata os valores para ficarem com cara de texto normal
+  const formatarValorResposta = (valor: string) => {
+    if (!valor) return '-';
+    if (valor.toLowerCase() === 'sim' || valor.toLowerCase() === 'nao') {
+      return valor.charAt(0).toUpperCase() + valor.slice(1);
+    }
+    const limpo = valor.replace(/_/g, ' ');
+    return limpo.charAt(0).toUpperCase() + limpo.slice(1);
+  };
 
   return (
     <div className="min-h-screen bg-[#ecece5] p-6 md:p-10 font-sans">
@@ -143,36 +165,103 @@ function Dashboard() {
                       </div>
                     </div>
 
-                    {/* BOTÃO QUE ABRE O DOSSIÊ */}
-                    <button 
-                      onClick={() => setCasoAberto(c)} 
-                      className="mt-4 w-full bg-[#3a4f99] text-white py-2 rounded-lg font-bold text-sm hover:bg-[#13233d] transition-colors"
-                    >
-                      Abrir Dossiê Completo e Preparar Peça
-                    </button>
+                    {/* DIVISOR: FERRAMENTAS DO ADVOGADO */}
+                    <div className="mt-8 pt-8 border-t border-gray-200 grid lg:grid-cols-3 gap-8">
+                      
+                      {/* COLUNA 1 E 2: O OVERVIEW DA TRIAGEM */}
+                      <div className="lg:col-span-2 space-y-4">
+                        <h4 className="text-[#13233d] font-bold text-sm flex items-center gap-2 mb-4">
+                          <FileText size={18} className="text-[#3a4f99]" /> 
+                          Resumo da Triagem
+                        </h4>
+                        
+                        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                          {c.triage_responses && c.triage_responses.length > 0 ? (
+                            <table className="w-full text-sm text-left">
+                              <tbody className="divide-y divide-gray-50">
+                                {c.triage_responses.map((resp, idx) => {
+                                  const rotulo = dicionarioTriagem[resp.field_name] || resp.field_name;
+                                  const valorFormatado = formatarValorResposta(resp.value);
+                                  
+                                  // Lógica de cores: Destaca de vermelho o que é passivo trabalhista (bom pro advogado)
+                                  const isAlerta = 
+                                    (resp.field_name === 'carteira_assinada' && resp.value === 'nao') ||
+                                    (resp.field_name === 'salario_por_fora' && resp.value === 'sim') ||
+                                    (resp.field_name === 'horas_extras' && resp.value === 'faz_mas_nao_recebe') ||
+                                    (resp.field_name === 'fgts_rescisao' && resp.value.includes('nao'));
 
-                    {/* Respostas da Triagem (Opcional manter aqui já que vai pro Dossiê, mas mantive como pediu) */}
-                    <div className="space-y-3 mt-8">
-                      <h4 className="text-[#13233d] font-bold text-sm flex items-center gap-2">
-                        <FileText size={16} /> Questionário de Triagem
-                      </h4>
-                      <div className="grid sm:grid-cols-2 gap-2">
-                        {c.triage_responses && c.triage_responses.length > 0 ? (
-                          c.triage_responses.map((resp, idx) => (
-                            <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                              <span className="text-xs text-gray-500 font-medium">{resp.field_name}</span>
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                                resp.value === 'Sim' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
-                              }`}>
-                                {resp.value}
-                              </span>
+                                  return (
+                                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                      <td className="px-4 py-3 font-medium text-gray-600 w-2/3">
+                                        {rotulo}
+                                      </td>
+                                      <td className="px-4 py-3 text-right">
+                                        <span className={`inline-flex font-bold px-2.5 py-1 rounded-md text-xs ${
+                                          isAlerta ? 'bg-red-50 text-red-700' : 'text-gray-700 bg-gray-100'
+                                        }`}>
+                                          {valorFormatado}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          ) : (
+                            <div className="p-6 text-center text-sm text-gray-400 italic">
+                              Questionário dinâmico não preenchido.
                             </div>
-                          ))
-                        ) : (
-                          <div className="col-span-2 text-sm text-gray-400 italic p-2">
-                            Nenhuma resposta dinâmica vinculada a este caso.
+                          )}
+                        </div>
+                      </div>
+
+                      {/* COLUNA 3: AÇÕES RÁPIDAS (MINI-CRM) */}
+                      <div className="space-y-5">
+                        <h4 className="text-[#13233d] font-bold text-sm flex items-center gap-2 mb-4">
+                          <Briefcase size={18} className="text-[#3a4f99]" /> 
+                          Gestão do Caso
+                        </h4>
+
+                        {/* Dropdown de Status */}
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Status do Lead</label>
+                          <select 
+                            className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-[#3a4f99] focus:border-[#3a4f99] block p-2.5 font-medium shadow-sm cursor-pointer"
+                            defaultValue={c.status}
+                          >
+                            <option value="NOVO">🟣 Novo (Não lido)</option>
+                            <option value="EM_ANALISE">⏳ Em Análise</option>
+                            <option value="CONTATADO">📞 Cliente Contatado</option>
+                            <option value="CONTRATADO">✅ Contrato Fechado</option>
+                            <option value="DESCARTADO">❌ Descartado</option>
+                          </select>
+                        </div>
+
+                        {/* Bloco de Notas Rápidas */}
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Notas da Equipe</label>
+                          <textarea 
+                            rows={3} 
+                            placeholder="Ex: Ligar amanhã às 14h para pedir extrato do banco..."
+                            className="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-[#3a4f99] focus:border-transparent resize-none shadow-sm"
+                          ></textarea>
+                          <div className="flex justify-end mt-2">
+                            <button className="text-xs font-bold text-[#3a4f99] hover:text-[#13233d]">
+                              Salvar Nota
+                            </button>
                           </div>
-                        )}
+                        </div>
+
+                        {/* Botão Principal Movido para a Lateral e Destacado */}
+                        <div className="pt-2">
+                          <button 
+                            onClick={() => setCasoAberto(c)} 
+                            className="w-full bg-[#13233d] text-[#d1d871] py-3 rounded-xl font-bold text-sm hover:bg-[#3a4f99] hover:text-white transition-all shadow-md flex items-center justify-center gap-2"
+                          >
+                            <FileText size={16} />
+                            Gerar Peça e Dossiê
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

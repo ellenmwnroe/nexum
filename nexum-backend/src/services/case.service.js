@@ -35,6 +35,7 @@ async function createCaseFromTriage(dadosTriagem) {
       update: {
         phone: telefone,
         email,
+        rg,
       },
       create: {
         name: nome,
@@ -88,8 +89,12 @@ async function getCasesByOffice(officeId) {
   const casos = await prisma.case.findMany({
     where: filtros,
     include: {
-      user: true, // Agora traz o nome, CPF, etc.
-      triage_responses: true, // Traz todas as respostas do bot!
+      user: {
+        include: {
+          addresses: true 
+        }
+      },
+      triage_responses: true, 
     },
     orderBy: {
       created_at: "desc",

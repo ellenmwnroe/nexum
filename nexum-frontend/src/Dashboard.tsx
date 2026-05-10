@@ -3,6 +3,7 @@ import {
   User, Briefcase, Calendar, 
   ChevronDown, ChevronUp, FileText, AlertTriangle 
 } from 'lucide-react';
+import DetalhesDoCaso from './DetalhesDoCaso';
 
 interface CaseItem {
   id: string;
@@ -19,6 +20,7 @@ interface CaseItem {
 function Dashboard() {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [casoAberto, setCasoAberto] = useState<CaseItem | null>(null);
 
   useEffect(() => {
     fetch('http://localhost:3000/api/cases')
@@ -39,6 +41,12 @@ function Dashboard() {
     if (!dateStr) return "--/--/----";
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
+
+  // 🚀 A MÁGICA DA NAVEGAÇÃO ACONTECE AQUI
+  // Se tiver um caso aberto, esconde o Dashboard e mostra o Dossiê
+  if (casoAberto) {
+    return <DetalhesDoCaso casoBruto={casoAberto} onVoltar={() => setCasoAberto(null)} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#ecece5] p-6 md:p-10 font-sans">
@@ -106,7 +114,7 @@ function Dashboard() {
                         <div className="bg-white p-3 rounded-xl border border-gray-100">
                           <p className="text-xs text-gray-400 font-bold uppercase">Admissão / Demissão</p>
                           <p className="text-[#13233d] font-medium tracking-tight">
-                            {formatDate(c.admission_date)} — {formatDate(c.resignation_date)}
+                            {formatDate(c.admission_date)} — {c.resignation_date ? formatDate(c.resignation_date) : <span className="text-green-600">Vínculo Ativo</span>}
                           </p>
                         </div>
                       </div>
@@ -122,7 +130,7 @@ function Dashboard() {
                         </div>
                       </div>
 
-                      {/* Coluna 3: Alerta de Risco */}
+                      {/* Coluna 3: Insight Nexum */}
                       <div className="space-y-3">
                         <h4 className="text-[#3a4f99] font-bold text-sm flex items-center gap-2 text-orange-600">
                           <AlertTriangle size={16} /> Insight Nexum
@@ -135,8 +143,16 @@ function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Respostas da Triagem */}
-                    <div className="space-y-3">
+                    {/* BOTÃO QUE ABRE O DOSSIÊ */}
+                    <button 
+                      onClick={() => setCasoAberto(c)} 
+                      className="mt-4 w-full bg-[#3a4f99] text-white py-2 rounded-lg font-bold text-sm hover:bg-[#13233d] transition-colors"
+                    >
+                      Abrir Dossiê Completo e Preparar Peça
+                    </button>
+
+                    {/* Respostas da Triagem (Opcional manter aqui já que vai pro Dossiê, mas mantive como pediu) */}
+                    <div className="space-y-3 mt-8">
                       <h4 className="text-[#13233d] font-bold text-sm flex items-center gap-2">
                         <FileText size={16} /> Questionário de Triagem
                       </h4>

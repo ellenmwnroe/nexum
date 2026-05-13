@@ -67,6 +67,7 @@ model Case {
   resignation_date   DateTime?
   salary             Decimal?
   status             String    @default("NOVO")
+  notes              String?  @db.Text
   created_at         DateTime  @default(now())
 
   user             User             @relation(fields: [user_id], references: [id])

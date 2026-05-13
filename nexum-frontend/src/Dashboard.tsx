@@ -14,6 +14,7 @@ interface CaseItem {
   admission_date?: string;
   resignation_date?: string;
   status: string;
+  notes?: string;
   triage_responses?: { field_name: string; value: string }[];
 }
 
@@ -21,7 +22,8 @@ function Dashboard() {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [casoAberto, setCasoAberto] = useState<CaseItem | null>(null);
-
+  const [textosObservacao, setTextosObservacao] = useState<Record<string, string>>({});
+  
   useEffect(() => {
     fetch('http://localhost:3000/api/cases')
       .then(res => res.json())
@@ -70,6 +72,49 @@ function Dashboard() {
     return limpo.charAt(0).toUpperCase() + limpo.slice(1);
   };
 
+  const atualizarStatus = async (id: string, novoStatus: string) => {
+  try {
+    const res = await fetch(`http://localhost:3000/api/cases/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: novoStatus }),
+    });
+
+    if (res.ok) {
+      // Atualiza a lista local para o advogado ver a mudança na hora
+      setCases(prev => prev.map(c => c.id === id ? { ...c, status: novoStatus } : c));
+      alert("Status atualizado com sucesso!");
+    }
+  } catch (err) {
+    console.error("Erro ao salvar status:", err);
+  }
+};
+
+  // Função para enviar a nota pro banco
+  const salvarObservacao = async (id: string) => {
+    const textoParaSalvar = textosObservacao[id];
+    
+    // Se não digitou nada de novo, não faz requisição à toa
+    if (textoParaSalvar === undefined) return; 
+
+    try {
+      const res = await fetch(`http://localhost:3000/api/cases/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: textoParaSalvar }),
+      });
+
+      if (res.ok) {
+        // Atualiza a lista visualmente
+        setCases(prev => prev.map(c => c.id === id ? { ...c, notes: textoParaSalvar } : c));
+        alert("Observação salva com sucesso!");
+      }
+    } catch (err) {
+      console.error("Erro ao salvar observação:", err);
+    }
+  };
+
+  
   return (
     <div className="min-h-screen bg-[#ecece5] p-6 md:p-10 font-sans">
       <div className="max-w-5xl mx-auto">
@@ -154,7 +199,7 @@ function Dashboard() {
 
                       {/* Coluna 3: Insight Nexum */}
                       <div className="space-y-3">
-                        <h4 className="text-[#3a4f99] font-bold text-sm flex items-center gap-2 text-orange-600">
+                        <h4 className="font-bold text-sm flex items-center gap-2 text-orange-600">
                           <AlertTriangle size={16} /> Insight Nexum
                         </h4>
                         <div className="bg-orange-50 p-3 rounded-xl border border-orange-100">
@@ -192,18 +237,37 @@ function Dashboard() {
 
                                   return (
                                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                      {/* Coluna da Esquerda (A Pergunta) */}
                                       <td className="px-4 py-3 font-medium text-gray-600 w-2/3">
                                         {rotulo}
                                       </td>
+                                      
+                                      {/* Coluna da Direita (A Resposta ou o Botão de Arquivo) */}
                                       <td className="px-4 py-3 text-right">
-                                        <span className={`inline-flex font-bold px-2.5 py-1 rounded-md text-xs ${
-                                          isAlerta ? 'bg-red-50 text-red-700' : 'text-gray-700 bg-gray-100'
-                                        }`}>
-                                          {valorFormatado}
-                                        </span>
+                                        {resp.field_name === 'upload_docs' ? (
+                                          <a 
+                                            // ajustar essa URL para usar a variável do .env futuramente
+                                            href={`http://localhost:3000/ficheiros/${resp.value}`} 
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-lg text-sm bg-blue-50 text-[#3a4f99] hover:bg-[#3a4f99] hover:text-white transition-colors"
+                                          >
+                                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                            </svg>
+                                            Visualizar 
+                                          </a>
+                                        ) : (
+                                          <span className={`inline-flex font-bold px-2.5 py-1 rounded-md text-xs ${
+                                            isAlerta ? 'bg-red-50 text-red-700' : 'text-gray-700 bg-gray-100'
+                                          }`}>
+                                            {valorFormatado}
+                                          </span>
+                                        )}
                                       </td>
                                     </tr>
                                   );
+                                  
                                 })}
                               </tbody>
                             </table>
@@ -225,29 +289,36 @@ function Dashboard() {
                         {/* Dropdown de Status */}
                         <div>
                           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Status do Lead</label>
-                          <select 
-                            className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-[#3a4f99] focus:border-[#3a4f99] block p-2.5 font-medium shadow-sm cursor-pointer"
-                            defaultValue={c.status}
-                          >
-                            <option value="NOVO">🟣 Novo (Não lido)</option>
-                            <option value="EM_ANALISE">⏳ Em Análise</option>
-                            <option value="CONTATADO">📞 Cliente Contatado</option>
-                            <option value="CONTRATADO">✅ Contrato Fechado</option>
-                            <option value="DESCARTADO">❌ Descartado</option>
-                          </select>
+                            <select 
+                              className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-[#3a4f99] focus:border-[#3a4f99] block p-2.5 font-medium shadow-sm cursor-pointer"
+                              onChange={(e) => atualizarStatus(c.id, e.target.value)}
+                            >
+                              <option value="NOVO">🟣 Novo (Não lido)</option>
+                              <option value="EM_ANALISE">⏳ Em Análise</option>
+                              <option value="CONTATADO">📞 Cliente Contatado</option>
+                              <option value="CONTRATADO">✅ Contrato Fechado</option>
+                              <option value="DESCARTADO">❌ Descartado</option>
+                            </select>
                         </div>
 
-                        {/* Bloco de Notas Rápidas */}
+                        {/* Bloco de Observações */}
                         <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Notas da Equipe</label>
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                            Observações do Caso
+                          </label>
                           <textarea 
                             rows={3} 
                             placeholder="Ex: Ligar amanhã às 14h para pedir extrato do banco..."
                             className="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-[#3a4f99] focus:border-transparent resize-none shadow-sm"
+                            defaultValue={c.notes || ""} 
+                            onChange={(e) => setTextosObservacao({ ...textosObservacao, [c.id]: e.target.value })}
                           ></textarea>
                           <div className="flex justify-end mt-2">
-                            <button className="text-xs font-bold text-[#3a4f99] hover:text-[#13233d]">
-                              Salvar Nota
+                            <button 
+                              onClick={() => salvarObservacao(c.id)}
+                              className="text-xs font-bold text-[#3a4f99] hover:text-[#13233d] transition-colors"
+                            >
+                              Salvar Observação
                             </button>
                           </div>
                         </div>

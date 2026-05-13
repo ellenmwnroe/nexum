@@ -54,10 +54,22 @@ async function createCaseFromTriage(dadosTriagem) {
       },
     });
 
-    const caseEntity = await tx.case.create({
+
+    // 🕵️ MODO DETETIVE ATIVADO
+    console.log("--- DEBUG ANTES DE SALVAR ---");
+    console.log("ID do Office que chegou:", office_id);
+    console.log("Tamanho do ID:", office_id ? office_id.length : "Indefinido");
+    
+    const escritórioExiste = await tx.office.findUnique({
+      where: { id: office_id }
+    });
+    console.log("O Prisma achou esse escritório no banco?", escritórioExiste ? "SIM!" : "NÃO ACHEI NADA!");
+    console.log("-----------------------------");
+
+  const caseEntity = await tx.case.create({
       data: {
-        user_id: user.id,
-        office_id,
+        office: { connect: { id: office_id } },
+        user: { connect: { id: user.id } },
         company: empresa,
         role: funcao,
         admission_date: data_admissao ? new Date(data_admissao) : null,
@@ -106,4 +118,30 @@ async function getCasesByOffice(officeId) {
   return casos;
 }
 
-module.exports = { createCaseFromTriage, getCasesByOffice };
+// Busca um caso específico pelo ID (Story 1)
+async function getCaseById(id) {
+  return await prisma.case.findUnique({
+    where: { id },
+    include: {
+      user: {
+        include: { addresses: true }
+      },
+      triage_responses: true,
+    },
+  });
+}
+
+// Atualiza o status ou as notas do caso
+async function updateCase(id, data) {
+  // Vamos montar os dados dinamicamente, só atualizando o que for enviado
+  const dadosParaAtualizar = {};
+  if (data.status !== undefined) dadosParaAtualizar.status = data.status;
+  if (data.notes !== undefined) dadosParaAtualizar.notes = data.notes;
+
+  return await prisma.case.update({
+    where: { id },
+    data: dadosParaAtualizar,
+  });
+}
+
+module.exports = { createCaseFromTriage, getCasesByOffice, getCaseById, updateCase };

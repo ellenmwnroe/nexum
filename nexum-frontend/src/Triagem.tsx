@@ -286,7 +286,7 @@ function Triagem() {
         try {
           const payloadDaTriagem = {
             ...novasRespostas,
-            office_id: "escritorio-test-123" // Lembrete: ajuste para o seu ID real no banco
+            office_id: "escritorio-teste" // ID fixo do escritório parceiro vai ser dinâmico pois serão múltiplos escritórios no futuro
           };
 
           const respostaApi = await fetch('http://localhost:3000/triagem', {
@@ -428,9 +428,35 @@ function Triagem() {
                   type="file" 
                   className="hidden" 
                   multiple 
-                  onChange={(e) => {
-                    const arquivos = e.target.files?.length || 0;
-                    if(arquivos > 0) lidarComResposta(`[${arquivos} ARQUIVOS]`, `Anexei ${arquivos} arquivo(s).`);
+                  onChange={async (e) => {
+                    const arquivos = e.target.files;
+                    if (!arquivos || arquivos.length === 0) return;
+                    
+                    // 1. Cria o pacote vazio
+                    const formData = new FormData();
+
+                    // 2. Faz um loop e coloca TODOS os arquivos dentro do pacote
+                    Array.from(arquivos).forEach(arquivo => {
+                      formData.append('documentos', arquivo);
+                    });
+
+                    try {
+                      // 3. Manda pro Back-end de verdade!
+                      const res = await fetch('http://localhost:3000/upload-documento', {
+                        method: 'POST',
+                        body: formData // Não precisa de "Content-Type", o navegador faz sozinho!
+                      });
+                      
+                      const data = await res.json();
+
+                      // 4. O Node devolveu os nomes finais (ex: 1715456-doc1.pdf, 1715457-doc2.png)
+                      // AGORA SIM mandamos a lista pro bot salvar no banco!
+                      lidarComResposta(data.fileNames, `Anexei ${arquivos.length} documento(s)`);
+                      
+                    } catch (err) {
+                      console.error(err);
+                      alert('Erro ao enviar arquivos para o servidor.');
+                    }
                   }} 
                 />
               </label>

@@ -26,6 +26,7 @@ model Lawyer {
   office_id  String
   name       String
   email      String   @unique
+  password   String
   role       String
   created_at DateTime @default(now())
 
@@ -69,7 +70,7 @@ model Case {
   status             String    @default("NOVO")
   case_type          String    @default("GERAL_TRABALHISTA")
   priority           String    @default("BAIXA")
-  notes              String?  @db.Text
+  notes              String?   @db.Text
   created_at         DateTime  @default(now())
 
   user             User             @relation(fields: [user_id], references: [id])

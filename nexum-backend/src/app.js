@@ -5,6 +5,20 @@ const triagemRoutes = require("./routes/triagem.routes");
 const path = require("path");
 const caseController = require('./controllers/case.controller');
 
+const authService = require('./services/auth.service');
+
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const result = await authService.login(email, password);
+
+    // Sucesso! Retornamos os dados do usuário e o token
+    return res.json(result);
+  } catch (error) {
+    // Erro (E-mail não existe ou senha errada)
+    return res.status(401).json({ error: error.message });
+  }
+});
 
 const app = express();
 
@@ -49,7 +63,7 @@ app.post('/upload-documento', upload.array('documentos', 10), (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: "Nenhum arquivo enviado" });
   }
-  
+
   const nomesSalvos = req.files.map(file => file.filename).join(', ');
   res.json({ fileNames: nomesSalvos });
 });

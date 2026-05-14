@@ -19,6 +19,7 @@ interface CaseItem {
   case_type?: string;
   priority?: string;
   summary?: string;
+  cre
 }
 
 function Dashboard() {
@@ -27,6 +28,8 @@ function Dashboard() {
   const [casoAberto, setCasoAberto] = useState<CaseItem | null>(null);
   const [textosObservacao, setTextosObservacao] = useState<Record<string, string>>({});
   const [filtroStatus, setFiltroStatus] = useState(''); // Vazio significa "Todos"
+  const [ordenacao, setOrdenacao] = useState('recentes'); // 'recentes' ou 'prioridade'
+  const [filtroTipo, setFiltroTipo] = useState('TODOS');
 
   // Função que busca os dados no Back-end
   const carregarCasos = async () => {
@@ -183,6 +186,34 @@ function Dashboard() {
       return limpo.charAt(0).toUpperCase() + limpo.slice(1);
     };
 
+    
+    let casosProcessados = cases.filter(c => {
+      if (filtroTipo === 'TODOS') return true;
+      
+      // Se o caso for vazio ou null, consideramos como Geral
+      const tipoDoCaso = c.case_type || 'GERAL_TRABALHISTA';
+      return tipoDoCaso.includes(filtroTipo);
+    });
+
+    // 2. Depois a gente ORDENA a lista que sobrou
+    casosProcessados.sort((a, b) => {
+      if (ordenacao === 'prioridade') {
+        // Damos um "peso" para cada prioridade para o JavaScript saber quem ganha
+        const pesos: Record<string, number> = { 'ALTA': 3, 'MEDIA': 2, 'BAIXA': 1 };
+        const pesoA = pesos[a.priority || 'BAIXA'] || 0;
+        const pesoB = pesos[b.priority || 'BAIXA'] || 0;;
+        
+        if (pesoA !== pesoB) {
+          return pesoB - pesoA; // Do maior pro menor (Alta primeiro)
+        }
+      }
+      
+      // Se a ordenação for por 'recentes' (ou se a prioridade der empate),
+      // ordena pela data de criação (do mais novo pro mais velho)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+
   return (
     <div className="min-h-screen bg-[#ecece5] p-6 md:p-10 font-sans">
       <div className="max-w-5xl mx-auto">
@@ -324,7 +355,8 @@ function Dashboard() {
                           <p className="text-[#13233d] font-medium">{c.user?.cpf || "Não informado"}</p>
                         </div>
                       </div>
-{/* Coluna 3: Insight Nexum */}
+
+                        {/* Coluna 3: Insight Nexum */}
                     <div className="space-y-3">
                       <h4 className="font-bold text-sm flex items-center gap-2 text-orange-600 mb-4">
                         <AlertTriangle size={16} /> Insight Nexum

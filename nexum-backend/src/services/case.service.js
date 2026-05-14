@@ -10,57 +10,99 @@ function normalizeText(text) {
     .toLowerCase(); 
 }
 
-// O "Cérebro" do Nexum - Versão Múltiplas Classificações
 function classifyCase(triageResponses) {
   const dictionary = {};
+  triageResponses.forEach(r => { dictionary[r.field_name] = normalizeText(r.value); });
+
+  const labels = [];
+  if (dictionary.carteira_assinada?.includes('nao') && dictionary.subordinacao?.includes('sim')) labels.push('PEJOTIZACAO');
+  if (dictionary.condicoes_trabalho?.includes('assedio') || dictionary.condicoes_trabalho?.includes('humilha') || dictionary.condicoes_trabalho?.includes('ofens') || dictionary.condicoes_trabalho?.includes('xing')) labels.push('ASSÉDIO');
+  if (dictionary.horas_extras?.includes('sim')) labels.push('HORAS_EXTRAS');
+  if (dictionary.situacao?.includes('demiti') || dictionary.situacao?.includes('rescisao')) labels.push('RESCISAO');
+  if (dictionary.fgts_rescisao?.includes('nao') || dictionary.fgts_rescisao?.includes('atrasad')) labels.push('FGTS');
+  if (dictionary.verbas_pendentes?.includes('sim')) labels.push('VERBAS_PENDENTES');
+  
+  if (labels.length === 0) labels.push('GERAL_TRABALHISTA');
+  return labels.join(', '); 
+}
+
+function calculatePriority(triageResponses) {
+  const dictionary = {};
   triageResponses.forEach(r => { 
-    dictionary[r.field_name] = normalizeText(r.value); 
+    dictionary[r.field_name] = normalizeText(r.value); // Usa a mesma função de limpar texto
   });
 
-  const labels = []; // Nossa lista vazia que vai acumular os problemas
+  let score = 0;
 
-  // Regra 1: Pejotização
-  if (dictionary.carteira_assinada?.includes('nao') && dictionary.subordinacao?.includes('sim')) {
-    labels.push('PEJOTIZACAO');
-  }
-
-  // Regra 2: Assédio
+  // 1. Assédio é gravíssimo, já joga a prioridade lá pra cima (+3 pontos)
   if (
     dictionary.condicoes_trabalho?.includes('assedio') || 
     dictionary.condicoes_trabalho?.includes('humilha') ||
     dictionary.condicoes_trabalho?.includes('ofen') || 
     dictionary.condicoes_trabalho?.includes('xing') 
   ) {
-    labels.push('ASSÉDIO');
+    score += 3;
   }
 
-  // Regra 3: Horas Extras
-  if (dictionary.horas_extras?.includes('sim')) {
-    labels.push('HORAS_EXTRAS');
+  // 2. Pejotização é grave (+2 pontos)
+  if (dictionary.carteira_assinada?.includes('nao') && dictionary.subordinacao?.includes('sim')) {
+    score += 2;
   }
 
-  // Regra 4: Verbas Rescisórias / Demissão
-  if (dictionary.situacao?.includes('demiti') || dictionary.situacao?.includes('rescisao')) {
-    labels.push('RESCISAO');
+  // 3. Verbas, FGTS e Horas Extras são problemas comuns, acumulam (+1 ponto cada)
+  if (dictionary.situacao?.includes('demiti') || dictionary.situacao?.includes('rescisao')) score += 1;
+  if (dictionary.fgts_rescisao?.includes('nao') || dictionary.fgts_rescisao?.includes('atrasad')) score += 1;
+  if (dictionary.horas_extras?.includes('sim')) score += 1;
+  if (dictionary.verbas_pendentes?.includes('sim')) score += 1;
+
+  // Classificação final baseada no total de pontos
+  if (score >= 3) return 'ALTA';
+  if (score === 2) return 'MEDIA';
+  return 'BAIXA';
+}
+
+// Função para gerar o resumo estruturado 
+function generateCaseSummary(caseData) {
+  // Extraindo os dados básicos com proteção (fallback)
+  const userName = caseData.user?.name || "Cliente não identificado";
+  const company = caseData.company || "empresa não informada";
+  const role = caseData.role || "função não informada";
+
+  // Transforma as respostas num dicionário para facilitar a leitura
+  const dic = {};
+  if (caseData.triage_responses) {
+    caseData.triage_responses.forEach(r => {
+      dic[r.field_name] = r.value; // Aqui pegamos o texto original para ficar legível
+    });
   }
 
-  // Regra 5: FGTS
-  if (dictionary.fgts_rescisao?.includes('nao') || dictionary.fgts_rescisao?.includes('atrasad')) {
-    labels.push('FGTS');
+  // Pegando e formatando as situações
+  const carteira = dic.carteira_assinada?.toLowerCase() === 'sim' ? 'com carteira assinada' : 'sem carteira assinada';
+  const situacao = dic.situacao ? dic.situacao.toLowerCase() : 'desligamento';
+
+  // 1. Início do texto
+  let summary = `O cliente ${userName} trabalhou na empresa ${company} atuando como ${role}, ${carteira}. `;
+  summary += `Informou que o fim do vínculo se deu por ${situacao}. `;
+
+  // 2. Coletando os agravantes
+  const agravantes = [];
+  if (dic.horas_extras?.toLowerCase() === 'sim') agravantes.push('horas extras não pagas');
+  if (dic.verbas_pendentes?.toLowerCase() === 'sim') agravantes.push('verbas pendentes');
+  if (dic.fgts_rescisao?.toLowerCase().includes('nao') || dic.fgts_rescisao?.toLowerCase().includes('atrasad')) agravantes.push('problemas com FGTS/Rescisão');
+  
+  // Condições de trabalho (se o texto for longo e diferente de "não")
+  if (dic.condicoes_trabalho && dic.condicoes_trabalho.length > 4 && !dic.condicoes_trabalho.toLowerCase().includes('nao')) {
+    agravantes.push('relatos de más condições de trabalho ou assédio');
   }
 
-  // Regra 6: Verbas Pendentes
-  if (dictionary.verbas_pendentes?.includes('sim')) {
-    labels.push('VERBAS_PENDENTES');
+  // 3. Fechamento do texto
+  if (agravantes.length > 0) {
+    summary += `O caso apresenta possíveis irregularidades relacionadas a: ${agravantes.join(', ')}.`;
+  } else {
+    summary += `Não foram relatados agravantes específicos na triagem inicial.`;
   }
 
-  // Se passou por tudo e a lista continuou vazia, cai no geral
-  if (labels.length === 0) {
-    labels.push('GERAL_TRABALHISTA');
-  }
-
-  // Transforma o array ['PEJOTIZACAO', 'ASSÉDIO'] em uma única string: "PEJOTIZACAO, ASSÉDIO"
-  return labels.join(', '); 
+  return summary;
 }
 
 async function createCaseFromTriage(dadosTriagem) {
@@ -97,8 +139,8 @@ async function createCaseFromTriage(dadosTriagem) {
     value: valor
   }));
 
-  // 2. Agora sim você passa esse array formatado para a inteligência classificar
   const tipoDoCaso = classifyCase(respostasFormatadas);
+  const prioridadeDoCaso = calculatePriority(respostasFormatadas);
 
   const novoCaso = await prisma.$transaction(async (tx) => {
     const user = await tx.user.upsert({
@@ -148,6 +190,7 @@ async function createCaseFromTriage(dadosTriagem) {
         salary: salarioNumerico,
         status: "NOVO",
         case_type: tipoDoCaso,
+        priority: prioridadeDoCaso,
         triage_responses: {
           create: respostasFormatadas 
         }
@@ -198,15 +241,24 @@ async function getCasesByOffice(officeId, status) {
 
 // Busca um caso específico pelo ID (Story 1)
 async function getCaseById(id) {
-  return await prisma.case.findUnique({
+  const caso = await prisma.case.findUnique({
     where: { id },
-    include: {
-      user: {
-        include: { addresses: true }
-      },
-      triage_responses: true,
-    },
+    include: { 
+      user: true, 
+      triage_responses: true 
+      // se tiver documents: true no código
+    } 
   });
+
+  if (caso) {
+    // clonei o objeto do Prisma e adicionamos o summary à força
+    return {
+      ...caso,
+      summary: generateCaseSummary(caso)
+    };
+  }
+
+  return null;
 }
 
 // Atualiza o status ou as notas do caso
@@ -237,4 +289,4 @@ module.exports = {
   updateCaseStatus      // a nossa nova
 };
 
-module.exports = { classifyCase, createCaseFromTriage, getCasesByOffice, getCaseById, updateCase, updateCaseStatus };
+module.exports = { classifyCase, calculatePriority, createCaseFromTriage, getCasesByOffice, getCaseById, updateCase, updateCaseStatus };

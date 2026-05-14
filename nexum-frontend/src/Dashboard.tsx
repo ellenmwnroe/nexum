@@ -17,6 +17,8 @@ interface CaseItem {
   notes?: string;
   triage_responses?: { field_name: string; value: string }[];
   case_type?: string;
+  priority?: string;
+  summary?: string;
 }
 
 function Dashboard() {
@@ -130,7 +132,57 @@ function Dashboard() {
       console.error("Erro ao salvar observação:", err);
     }
   };
-  
+
+    // 1. Dicionário de Status
+    const mapaStatus: Record<string, string> = {
+      'NOVO': 'Novo',
+      'EM_ANALISE': 'Em Análise',
+      'CONTATADO': 'Contatado',
+      'CONTRATADO': 'Contratado',
+      'DESCARTADO': 'Descartado'
+    };
+
+    // 2. Dicionário de Tipos de Caso
+    const mapaTipos: Record<string, string> = {
+      'RESCISAO': 'Rescisão',
+      'FGTS': 'FGTS',
+      'PEJOTIZACAO': 'Pejotização',
+      'ASSÉDIO': 'Assédio',
+      'HORAS_EXTRAS': 'Horas Extras',
+      'VERBAS_PENDENTES': 'Verbas Pendentes',
+      'GERAL_TRABALHISTA': 'Geral Trabalhista'
+    };
+
+    // 3. Dicionário de Respostas (Para o sim/nao e opções dos selects)
+    const mapaRespostas: Record<string, string> = {
+      'sim': 'Sim',
+      'nao': 'Não',
+      'demitido_sem_justa_causa': 'Demissão sem justa causa',
+      'demitido_justa_causa': 'Demissão por justa causa',
+      'pedido_de_demissao': 'Pedido de demissão',
+      'acordo': 'Acordo',
+      'rescisao_indireta': 'Rescisão indireta',
+      'pagou_tudo': 'Pagou tudo',
+      'nao_pagou': 'Não pagou',
+      'pagou_parcial': 'Pagou parcial',
+      'faz_e_recebe': 'Faz e recebe',
+      'faz_mas_nao_recebe': 'Faz mas não recebe',
+      'nao_faz': 'Não faz'
+    };
+
+    // Função mágica para as respostas da triagem
+    const formatarResposta = (texto?: string) => {
+      if (!texto) return 'Não informado';
+      const chave = texto.toLowerCase();
+      // Se a palavra estiver no dicionário, devolve ela bonita.
+      if (mapaRespostas[chave]) return mapaRespostas[chave];
+      
+      // Se não estiver (ex: um texto livre que o cliente digitou),
+      // apenas capitaliza a primeira letra e tira os underlines, se houver.
+      const limpo = texto.replace(/_/g, ' ');
+      return limpo.charAt(0).toUpperCase() + limpo.slice(1);
+    };
+
   return (
     <div className="min-h-screen bg-[#ecece5] p-6 md:p-10 font-sans">
       <div className="max-w-5xl mx-auto">
@@ -180,12 +232,35 @@ function Dashboard() {
                       {userInitial}
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-[#13233d]">{userName}</h3>
+                      {/* O flex flex-wrap alinha o nome e a prioridade */}
+                      <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                        <h3 className="text-xl font-bold text-[#13233d]">{userName}</h3>
+                        
+                        {/* AS ETIQUETAS DE PRIORIDADE */}
+                        {c.priority === 'ALTA' && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+                            ALTA
+                          </span>
+                        )}
+                        {c.priority === 'MEDIA' && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-200">
+                            MÉDIA
+                          </span>
+                        )}
+                        {(c.priority === 'BAIXA' || !c.priority) && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 border border-green-200">
+                            BAIXA
+                          </span>
+                        )}
+                      </div>
+                      
                       <p className="text-sm text-gray-400 font-medium flex items-center gap-1">
                         <Briefcase size={14} /> {companyName} • {roleName}
                       </p>
                     </div>
                   </div>
+
+                  
 
                   <div className="flex items-center gap-6">
                     <div className="text-right hidden sm:block">
@@ -193,31 +268,31 @@ function Dashboard() {
                       <p className="text-[#13233d] font-bold">{formatCurrency(c.salary)}</p>
                     </div>
 
-                    {/* 👈 MÚLTIPLAS ETIQUETAS: A CLASSIFICAÇÃO DA INTELIGÊNCIA */}
+                    {/* ETIQUETAS: TIPO DE CASO */}
                       <div className="flex gap-2 flex-wrap justify-end">
                         {c.case_type ? (
-                          // Corta a string nas vírgulas e gera um balão para cada um
                           c.case_type.split(', ').map((tipo, index) => (
                             <div 
                               key={index} 
                               className="px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-tighter bg-purple-100 text-purple-800 border border-purple-200"
                             >
-                              {tipo.replace('_', ' ')}
+                              {mapaTipos[tipo] || tipo.replace(/_/g, ' ')}
                             </div>
                           ))
                         ) : (
-                          // Caso antigo que ainda não tem classificação no banco
                           <div className="px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-tighter bg-gray-100 text-gray-500 border border-gray-200">
                             GERAL TRABALHISTA
                           </div>
                         )}
                       </div>
 
-                    <div className={`px-4 py-1.5 rounded-lg font-bold text-xs uppercase tracking-tighter ${
-                      c.status === 'NOVO' ? 'bg-[#d1d871] text-[#13233d]' : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {c.status || "NOVO"}
-                    </div>
+                    {/* ETIQUETA: STATUS DO LEAD */}
+                      <div className={`px-4 py-1.5 rounded-lg font-bold text-xs uppercase tracking-tighter ${
+                        c.status === 'NOVO' ? 'bg-[#d1d871] text-[#13233d]' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {mapaStatus[c.status] || c.status}
+                      </div>
+
                     {expandedId === c.id ? <ChevronUp className="text-gray-300" /> : <ChevronDown className="text-gray-300" />}
                   </div>
                 </div>
@@ -249,18 +324,57 @@ function Dashboard() {
                           <p className="text-[#13233d] font-medium">{c.user?.cpf || "Não informado"}</p>
                         </div>
                       </div>
-
-                      {/* Coluna 3: Insight Nexum */}
-                      <div className="space-y-3">
-                        <h4 className="font-bold text-sm flex items-center gap-2 text-orange-600">
-                          <AlertTriangle size={16} /> Insight Nexum
-                        </h4>
-                        <div className="bg-orange-50 p-3 rounded-xl border border-orange-100">
-                          <p className="text-orange-800 text-xs font-bold leading-tight">
-                            Revisar detalhes do vínculo para identificar passivos trabalhistas.
+{/* Coluna 3: Insight Nexum */}
+                    <div className="space-y-3">
+                      <h4 className="font-bold text-sm flex items-center gap-2 text-orange-600 mb-4">
+                        <AlertTriangle size={16} /> Insight Nexum
+                      </h4>
+                      
+                      {/* Dica para Assédio */}
+                      {c.case_type?.includes('ASSÉDIO') && (
+                        <div className="bg-red-50 p-3 rounded-xl border border-red-100 shadow-sm">
+                          <p className="text-red-800 text-xs font-bold leading-tight">
+                            ⚠️ Atenção: Fortes indícios de assédio. Alto potencial para Danos Morais. Oriente a reunir provas.
                           </p>
                         </div>
-                      </div>
+                      )}
+
+                      {/* Dica para Pejotização */}
+                      {c.case_type?.includes('PEJOTIZACAO') && (
+                        <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 shadow-sm">
+                          <p className="text-orange-800 text-xs font-bold leading-tight">
+                            🚨 Falso PJ: Focar na comprovação de subordinação e habitualidade.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Dica para Horas Extras */}
+                      {c.case_type?.includes('HORAS_EXTRAS') && (
+                        <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 shadow-sm">
+                          <p className="text-blue-800 text-xs font-bold leading-tight">
+                            🕒 Horas extras: Verificar se havia controle de ponto ou testemunhas da jornada.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Dica para FGTS / Rescisão */}
+                      {(c.case_type?.includes('FGTS') || c.case_type?.includes('RESCISAO')) && (
+                        <div className="bg-yellow-50 p-3 rounded-xl border border-yellow-100 shadow-sm">
+                          <p className="text-yellow-800 text-xs font-bold leading-tight">
+                            💰 Verbas: Solicitar o extrato analítico do FGTS via APP da Caixa.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Caso Geral */}
+                      {(!c.case_type || c.case_type === 'GERAL_TRABALHISTA') && (
+                        <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 shadow-sm">
+                          <p className="text-gray-600 text-xs font-bold leading-tight">
+                            Nenhum alerta crítico disparado. Revisar detalhes para identificar passivos ocultos.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                     </div>
 
                     {/* DIVISOR: FERRAMENTAS DO ADVOGADO */}
@@ -279,9 +393,11 @@ function Dashboard() {
                               <tbody className="divide-y divide-gray-50">
                                 {c.triage_responses.map((resp, idx) => {
                                   const rotulo = dicionarioTriagem[resp.field_name] || resp.field_name;
-                                  const valorFormatado = formatarValorResposta(resp.value);
                                   
-                                  // Lógica de cores: Destaca de vermelho o que é passivo trabalhista (bom pro advogado)
+                                  // 👇 AQUI! Usamos a nossa nova função inteligente do dicionário:
+                                  const valorFormatado = formatarResposta(resp.value);
+                                  
+                                  // Lógica de cores: Destaca de vermelho o que é passivo trabalhista
                                   const isAlerta = 
                                     (resp.field_name === 'carteira_assinada' && resp.value === 'nao') ||
                                     (resp.field_name === 'salario_por_fora' && resp.value === 'sim') ||

@@ -68,6 +68,7 @@ model Case {
   salary             Decimal?
   status             String    @default("NOVO")
   case_type          String    @default("GERAL_TRABALHISTA")
+  priority           String    @default("BAIXA")
   notes              String?  @db.Text
   created_at         DateTime  @default(now())
 

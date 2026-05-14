@@ -1,9 +1,6 @@
-
-// Aceitamos o caso cru com "any" para facilitar, ou você pode usar a interface CaseItem
 export default function DetalhesDoCaso({ casoBruto, onVoltar }: { casoBruto: any, onVoltar: () => void }) {
   
-  // 1. O TRADUTOR FICA ESCONDIDO AQUI DENTRO!
-  // Ele busca a resposta certa dentro daquele array misturado que veio do banco
+  // 1. Tradutor de respostas da triagem
   const getResp = (campo: string) => casoBruto.triage_responses?.find((r: any) => r.field_name === campo)?.value || 'Não informado';
 
   const formatCurrency = (value?: number) => {
@@ -16,15 +13,16 @@ export default function DetalhesDoCaso({ casoBruto, onVoltar }: { casoBruto: any
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
 
-
   const moradaUser = casoBruto.user?.addresses?.[0];
   const enderecoCompleto = moradaUser 
     ? `${moradaUser.cep} - ${moradaUser.full_address}` 
     : "Endereço não informado";
     
-  // 2. Montamos o objeto organizado que a tela precisa
+  // 2. Montamos o objeto organizado
   const caso = {
     id: casoBruto.id,
+    prioridade: casoBruto.priority || 'BAIXA',
+    tipos: casoBruto.case_type ? casoBruto.case_type.split(', ') : ['GERAL_TRABALHISTA'],
     cliente: {
       nome: casoBruto.user?.name || "Cliente não identificado",
       cpf: casoBruto.user?.cpf || "Não informado",
@@ -42,20 +40,62 @@ export default function DetalhesDoCaso({ casoBruto, onVoltar }: { casoBruto: any
       carteira_assinada: getResp('carteira_assinada'),
     },
     violacoes: {
-      pejotizacao: getResp('pejotizacao') === 'sim',
-      salario_por_fora: getResp('salario_por_fora') === 'sim',
-      horas_extras: getResp('horas_extras'),
-      fgts_rescisao: getResp('fgts_rescisao'),
+      // Agora o mapa de violações puxa direto da nossa Inteligência do Back-end!
+      pejotizacao: casoBruto.case_type?.includes('PEJOTIZACAO'),
+      assedio: casoBruto.case_type?.includes('ASSÉDIO'),
+      horas_extras: casoBruto.case_type?.includes('HORAS_EXTRAS'),
+      fgts_rescisao: casoBruto.case_type?.includes('FGTS') || casoBruto.case_type?.includes('RESCISAO'),
     }
   };
 
-  // 3. Função de copiar para petição
+  // 3. A NOSSA INTELIGÊNCIA DE RESUMO (Com Português Perfeito 📚)
+  const gerarResumoLocal = () => {
+    const carteira = caso.vinculo.carteira_assinada.toLowerCase() === 'sim' ? 'com carteira assinada' : 'sem carteira assinada';
+    
+    // Dicionário para arrumar os motivos de saída
+    const mapaSituacao: Record<string, string> = {
+      'demitido_sem_justa_causa': 'demissão sem justa causa',
+      'demitido_justa_causa': 'demissão por justa causa',
+      'pedido_de_demissao': 'pedido de demissão',
+      'acordo': 'acordo',
+      'rescisao_indireta': 'rescisão indireta'
+    };
+    
+    // Dicionário para arrumar os agravantes/tipos de caso
+    const mapaTipos: Record<string, string> = {
+      'RESCISAO': 'problemas na rescisão',
+      'FGTS': 'FGTS', // Mantém maiúsculo porque é sigla
+      'PEJOTIZACAO': 'pejotização',
+      'ASSÉDIO': 'assédio',
+      'HORAS_EXTRAS': 'horas extras',
+      'VERBAS_PENDENTES': 'verbas pendentes'
+    };
+
+    const sitBruta = getResp('situacao');
+    // Tenta achar no dicionário. Se não achar, faz a limpeza básica
+    const situacao = mapaSituacao[sitBruta] || sitBruta.replace(/_/g, ' ').toLowerCase();
+    
+    let texto = `O cliente ${caso.cliente.nome} trabalhou na empresa ${caso.vinculo.empresa} atuando como ${caso.vinculo.funcao}, ${carteira}. Informou que o fim do vínculo se deu por ${situacao}. `;
+    
+    // Traduzindo as etiquetas roxas para o texto do resumo
+    const agravantes = caso.tipos
+      .filter((t: string) => t !== 'GERAL_TRABALHISTA')
+      .map((t: string) => mapaTipos[t] || t.replace(/_/g, ' ').toLowerCase());
+    
+    if (agravantes.length > 0) {
+      texto += `O caso apresenta possíveis irregularidades relacionadas a: ${agravantes.join(', ')}.`;
+    } else {
+      texto += `Não foram relatados agravantes específicos na triagem inicial.`;
+    }
+    
+    return texto;
+  };
+
   const copiarParaPeticao = (texto: string) => {
     navigator.clipboard.writeText(texto);
     alert('Copiado para a área de transferência!');
   };
 
-  // 4. A tela desenha usando a variável "caso" que acabamos de organizar
   return (
     <div className="p-6 max-w-6xl mx-auto bg-[#ecece5] min-h-screen font-sans">
       <button 
@@ -66,14 +106,27 @@ export default function DetalhesDoCaso({ casoBruto, onVoltar }: { casoBruto: any
         Voltar para a lista de casos
       </button>
 
-      {/* O resto do HTML do Dossiê continua igualzinho aqui pra baixo... */}
-      {/* HEADER DO CASO */}
-      <div className="flex justify-between items-center mb-8">
+      {/* 1. HEADER DO CASO TURBINADO */}
+      <div className="flex justify-between items-start mb-8">
         <div>
           <h1 className="text-3xl font-bold text-[#13233d]">{caso.cliente.nome}</h1>
-          <p className="text-gray-500 font-medium mt-1">
-            Caso #{caso.id.substring(0, 8)} • Reclamatória Trabalhista em Potencial
-          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <span className="text-gray-500 font-medium mr-2">
+              Caso #{caso.id?.substring(0, 8)}
+            </span>
+            
+            {/* ETIQUETA DE PRIORIDADE */}
+            {caso.prioridade === 'ALTA' && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">PRIORIDADE ALTA</span>}
+            {caso.prioridade === 'MEDIA' && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-200">PRIORIDADE MÉDIA</span>}
+            {caso.prioridade === 'BAIXA' && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 border border-green-200">PRIORIDADE BAIXA</span>}
+            
+            {/* ETIQUETAS DO TIPO DE CASO */}
+            {caso.tipos.map((tipo: string, index: number) => (
+              <span key={index} className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-100 text-purple-800 border border-purple-200">
+                {tipo.replace('_', ' ')}
+              </span>
+            ))}
+          </div>
         </div>
         <div className="flex gap-3">
           <button className="bg-white border-2 border-[#3a4f99] text-[#3a4f99] px-4 py-2 rounded-xl font-bold hover:bg-[#3a4f99] hover:text-white transition-colors">
@@ -83,6 +136,24 @@ export default function DetalhesDoCaso({ casoBruto, onVoltar }: { casoBruto: any
             Iniciar Peça
           </button>
         </div>
+      </div>
+
+      {/* 2. BLOCO DE RESUMO DO CASO (Garantido de aparecer) */}
+      <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 mb-8 shadow-sm">
+        <div className="flex justify-between items-start mb-3">
+          <h4 className="text-xs font-bold text-blue-800 uppercase tracking-widest flex items-center gap-2">
+              💡 Resumo da Triagem
+          </h4>
+          <button 
+            onClick={() => copiarParaPeticao(gerarResumoLocal())}
+            className="text-blue-600 hover:text-blue-800 text-[10px] font-bold flex items-center gap-1 uppercase"
+          >
+            Copiar Resumo
+          </button>
+        </div>
+        <p className="text-[#13233d] font-medium text-sm leading-relaxed">
+          {gerarResumoLocal()}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -136,7 +207,7 @@ export default function DetalhesDoCaso({ casoBruto, onVoltar }: { casoBruto: any
             </div>
           </div>
 
-          {/* CARD: Mapa de Violações (Onde tem dinheiro a receber) */}
+          {/* CARD: Mapa de Violações (Agora Inteligente!) */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-bold text-[#13233d] mb-5 border-b border-gray-100 pb-3">Análise de Violações</h2>
             
@@ -144,26 +215,35 @@ export default function DetalhesDoCaso({ casoBruto, onVoltar }: { casoBruto: any
               {caso.violacoes.pejotizacao && (
                  <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-100">
                     <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                    <p className="font-semibold text-orange-800 text-sm">Falso PJ Identificado (Subordinação e Horário Fixo relatados)</p>
+                    <p className="font-semibold text-orange-800 text-sm">Falso PJ Identificado (Subordinação relatada)</p>
                  </div>
               )}
-              {caso.violacoes.fgts_rescisao !== 'pagou_tudo' && (
+              {caso.violacoes.fgts_rescisao && (
                  <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-100">
                     <div className="w-2 h-2 rounded-full bg-red-500"></div>
                     <p className="font-semibold text-red-800 text-sm">Irregularidade no FGTS ou Verbas Rescisórias</p>
                  </div>
               )}
-               {caso.violacoes.horas_extras === 'faz_mas_nao_recebe' && (
+               {caso.violacoes.horas_extras && (
                  <div className="flex items-center gap-3 p-3 bg-[#3a4f99]/10 rounded-lg border border-[#3a4f99]/20">
                     <div className="w-2 h-2 rounded-full bg-[#3a4f99]"></div>
-                    <p className="font-semibold text-[#3a4f99] text-sm">Horas Extras inadimplidas (Requer apuração de jornada)</p>
+                    <p className="font-semibold text-[#3a4f99] text-sm">Horas Extras inadimplidas</p>
                  </div>
+              )}
+              {caso.violacoes.assedio && (
+                 <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                    <p className="font-semibold text-purple-800 text-sm">Relatos de Assédio ou Más Condições</p>
+                 </div>
+              )}
+              {!caso.violacoes.pejotizacao && !caso.violacoes.fgts_rescisao && !caso.violacoes.horas_extras && !caso.violacoes.assedio && (
+                <p className="text-sm text-gray-500 italic">Nenhuma violação grave detectada automaticamente. Verifique as notas da triagem.</p>
               )}
             </div>
           </div>
         </div>
 
-        {/* COLUNA DIREITA: Qualificação e Contato */}
+        {/* COLUNA DIREITA: Qualificação e Contato (Seu código original mantido perfeito) */}
         <div className="space-y-6">
           <div className="bg-[#13233d] p-6 rounded-2xl shadow-sm text-white">
              <h2 className="text-lg font-bold text-[#d1d871] mb-5 border-b border-white/10 pb-3">Qualificação do Cliente</h2>
@@ -187,7 +267,7 @@ export default function DetalhesDoCaso({ casoBruto, onVoltar }: { casoBruto: any
               onClick={() => copiarParaPeticao(`${caso.cliente.nome}, brasileiro(a), portador(a) do RG nº ${caso.cliente.rg} e inscrito(a) no CPF sob o nº ${caso.cliente.cpf}, residente e domiciliado(a) na ${caso.cliente.endereco}...`)}
               className="mt-6 w-full bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-xl text-sm font-bold transition-colors"
             >
-               Copiar Qualificação Completa
+               Copiar Qualificação
              </button>
           </div>
 
@@ -203,8 +283,8 @@ export default function DetalhesDoCaso({ casoBruto, onVoltar }: { casoBruto: any
                  caso.cliente.telefone !== "Não informado" 
                    ? `https://wa.me/${
                        caso.cliente.telefone.startsWith('+') 
-                         ? caso.cliente.telefone.replace(/\D/g, '') // Se tem +, usa direto (ex: 351...)
-                         : '55' + caso.cliente.telefone.replace(/\D/g, '') // Se não, bota o 55 do Brasil
+                         ? caso.cliente.telefone.replace(/\D/g, '') 
+                         : '55' + caso.cliente.telefone.replace(/\D/g, '') 
                      }` 
                    : '#'
                } 

@@ -16,6 +16,7 @@ interface CaseItem {
   status: string;
   notes?: string;
   triage_responses?: { field_name: string; value: string }[];
+  case_type?: string;
 }
 
 function Dashboard() {
@@ -23,17 +24,33 @@ function Dashboard() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [casoAberto, setCasoAberto] = useState<CaseItem | null>(null);
   const [textosObservacao, setTextosObservacao] = useState<Record<string, string>>({});
-  
-  useEffect(() => {
-    fetch('http://localhost:3000/api/cases')
-      .then(res => res.json())
-      .then(payload => {
-        // Garantimos que payload.data seja sempre um array
-        setCases(Array.isArray(payload.data) ? payload.data : Array.isArray(payload) ? payload : []);
-      })
-      .catch(err => console.error("Erro ao buscar casos:", err));
-  }, []);
+  const [filtroStatus, setFiltroStatus] = useState(''); // Vazio significa "Todos"
 
+  // Função que busca os dados no Back-end
+  const carregarCasos = async () => {
+    try {
+      // Monta a URL dinâmica: se tiver filtro, adiciona o ?status=
+      let url = 'http://localhost:3000/api/cases';
+      if (filtroStatus) {
+        url += `?status=${filtroStatus}`;
+      }
+
+      const res = await fetch(url);
+      const payload = await res.json();
+      
+      // Garante que estamos pegando a lista de dentro de payload.data
+      const listaFinal = Array.isArray(payload.data) ? payload.data : Array.isArray(payload) ? payload : [];
+      setCases(listaFinal);
+    } catch (err) {
+      console.error("Erro ao buscar casos:", err);
+    }
+  };
+
+  // O segredo da Story 3: toda vez que 'filtroStatus' mudar, o useEffect roda de novo!
+  useEffect(() => {
+    carregarCasos();
+  }, [filtroStatus]);
+  
   const formatCurrency = (value?: number) => {
     if (!value) return "Não informado";
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -113,7 +130,6 @@ function Dashboard() {
       console.error("Erro ao salvar observação:", err);
     }
   };
-
   
   return (
     <div className="min-h-screen bg-[#ecece5] p-6 md:p-10 font-sans">
@@ -122,6 +138,22 @@ function Dashboard() {
           <h1 className="text-4xl font-black text-[#13233d] mb-2 tracking-tight">Nexum Dashboard</h1>
           <p className="text-gray-500 font-medium italic">Análise de leads e triagens em tempo real.</p>
         </header>
+
+        <div className="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-6">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Filtrar por:</span>
+          <select 
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value)}
+            className="bg-transparent text-sm font-bold text-[#3a4f99] outline-none cursor-pointer"
+          >
+            <option value="">📂 Todos os casos</option>
+            <option value="NOVO">🟣 Novos</option>
+            <option value="EM_ANALISE">⏳ Em Análise</option>
+            <option value="CONTATADO">📞 Contatados</option>
+            <option value="CONTRATADO">✅ Contratados</option>
+            <option value="DESCARTADO">❌ Descartados</option>
+          </select>
+        </div>
 
         <div className="grid gap-6">
           {cases.map((c) => {
@@ -160,6 +192,27 @@ function Dashboard() {
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Remuneração</p>
                       <p className="text-[#13233d] font-bold">{formatCurrency(c.salary)}</p>
                     </div>
+
+                    {/* 👈 MÚLTIPLAS ETIQUETAS: A CLASSIFICAÇÃO DA INTELIGÊNCIA */}
+                      <div className="flex gap-2 flex-wrap justify-end">
+                        {c.case_type ? (
+                          // Corta a string nas vírgulas e gera um balão para cada um
+                          c.case_type.split(', ').map((tipo, index) => (
+                            <div 
+                              key={index} 
+                              className="px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-tighter bg-purple-100 text-purple-800 border border-purple-200"
+                            >
+                              {tipo.replace('_', ' ')}
+                            </div>
+                          ))
+                        ) : (
+                          // Caso antigo que ainda não tem classificação no banco
+                          <div className="px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-tighter bg-gray-100 text-gray-500 border border-gray-200">
+                            GERAL TRABALHISTA
+                          </div>
+                        )}
+                      </div>
+
                     <div className={`px-4 py-1.5 rounded-lg font-bold text-xs uppercase tracking-tighter ${
                       c.status === 'NOVO' ? 'bg-[#d1d871] text-[#13233d]' : 'bg-blue-100 text-blue-800'
                     }`}>
@@ -290,14 +343,15 @@ function Dashboard() {
                         <div>
                           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Status do Lead</label>
                             <select 
+                              defaultValue={c.status} 
                               className="w-full bg-white border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-[#3a4f99] focus:border-[#3a4f99] block p-2.5 font-medium shadow-sm cursor-pointer"
                               onChange={(e) => atualizarStatus(c.id, e.target.value)}
                             >
-                              <option value="NOVO">🟣 Novo (Não lido)</option>
-                              <option value="EM_ANALISE">⏳ Em Análise</option>
-                              <option value="CONTATADO">📞 Cliente Contatado</option>
-                              <option value="CONTRATADO">✅ Contrato Fechado</option>
-                              <option value="DESCARTADO">❌ Descartado</option>
+                              <option value="NOVO">Novo (Não lido)</option>
+                              <option value="EM_ANALISE">Em Análise</option>
+                              <option value="CONTATADO">Cliente Contatado</option>
+                              <option value="CONTRATADO">Contrato Fechado</option>
+                              <option value="DESCARTADO">Descartado</option>
                             </select>
                         </div>
 

@@ -1,6 +1,68 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
+// Função auxiliar para arrancar acentos, cedilhas e maiúsculas
+function normalizeText(text) {
+  if (!text) return '';
+  return text
+    .normalize("NFD") 
+    .replace(/[\u0300-\u036f]/g, "") 
+    .toLowerCase(); 
+}
+
+// O "Cérebro" do Nexum - Versão Múltiplas Classificações
+function classifyCase(triageResponses) {
+  const dictionary = {};
+  triageResponses.forEach(r => { 
+    dictionary[r.field_name] = normalizeText(r.value); 
+  });
+
+  const labels = []; // Nossa lista vazia que vai acumular os problemas
+
+  // Regra 1: Pejotização
+  if (dictionary.carteira_assinada?.includes('nao') && dictionary.subordinacao?.includes('sim')) {
+    labels.push('PEJOTIZACAO');
+  }
+
+  // Regra 2: Assédio
+  if (
+    dictionary.condicoes_trabalho?.includes('assedio') || 
+    dictionary.condicoes_trabalho?.includes('humilha') ||
+    dictionary.condicoes_trabalho?.includes('ofen') || 
+    dictionary.condicoes_trabalho?.includes('xing') 
+  ) {
+    labels.push('ASSÉDIO');
+  }
+
+  // Regra 3: Horas Extras
+  if (dictionary.horas_extras?.includes('sim')) {
+    labels.push('HORAS_EXTRAS');
+  }
+
+  // Regra 4: Verbas Rescisórias / Demissão
+  if (dictionary.situacao?.includes('demiti') || dictionary.situacao?.includes('rescisao')) {
+    labels.push('RESCISAO');
+  }
+
+  // Regra 5: FGTS
+  if (dictionary.fgts_rescisao?.includes('nao') || dictionary.fgts_rescisao?.includes('atrasad')) {
+    labels.push('FGTS');
+  }
+
+  // Regra 6: Verbas Pendentes
+  if (dictionary.verbas_pendentes?.includes('sim')) {
+    labels.push('VERBAS_PENDENTES');
+  }
+
+  // Se passou por tudo e a lista continuou vazia, cai no geral
+  if (labels.length === 0) {
+    labels.push('GERAL_TRABALHISTA');
+  }
+
+  // Transforma o array ['PEJOTIZACAO', 'ASSÉDIO'] em uma única string: "PEJOTIZACAO, ASSÉDIO"
+  return labels.join(', '); 
+}
+
 async function createCaseFromTriage(dadosTriagem) {
   const {
     nome,
@@ -28,6 +90,15 @@ async function createCaseFromTriage(dadosTriagem) {
   if (salario) {
     salarioNumerico = parseFloat(String(salario).replace(/[^\d,]/g, "").replace(",", "."));
   }
+
+  // 1. Transforma o objeto { chave: valor } no array [{ field_name, value }] que o Prisma exige
+  const respostasFormatadas = Object.entries(respostasDinamicas).map(([chave, valor]) => ({
+    field_name: chave,
+    value: valor
+  }));
+
+  // 2. Agora sim você passa esse array formatado para a inteligência classificar
+  const tipoDoCaso = classifyCase(respostasFormatadas);
 
   const novoCaso = await prisma.$transaction(async (tx) => {
     const user = await tx.user.upsert({
@@ -76,6 +147,10 @@ async function createCaseFromTriage(dadosTriagem) {
         resignation_date: data_demissao ? new Date(data_demissao) : null,
         salary: salarioNumerico,
         status: "NOVO",
+        case_type: tipoDoCaso,
+        triage_responses: {
+          create: respostasFormatadas 
+        }
       },
     });
 
@@ -95,8 +170,13 @@ async function createCaseFromTriage(dadosTriagem) {
   return novoCaso;
 }
 
-async function getCasesByOffice(officeId) {
-  const filtros = officeId ? { office_id: officeId } : {};
+async function getCasesByOffice(officeId, status) {
+  // Montamos os filtros de forma dinâmica: 
+  // Se vier o officeId, ele entra. Se vier o status, ele entra também!
+  const filtros = {
+    ...(officeId && { office_id: officeId }),
+    ...(status && { status: status })
+  };
 
   const casos = await prisma.case.findMany({
     where: filtros,
@@ -113,8 +193,6 @@ async function getCasesByOffice(officeId) {
     },
   });
 
-  // Removemos aquele .map() antigo que estava "escondendo" os dados.
-  // Agora o React vai receber o objeto completo exatamente como está no banco de dados.
   return casos;
 }
 
@@ -144,4 +222,19 @@ async function updateCase(id, data) {
   });
 }
 
-module.exports = { createCaseFromTriage, getCasesByOffice, getCaseById, updateCase };
+// Atualiza apenas o status do caso
+async function updateCaseStatus(id, status) {
+  // Lembre-se de usar a mesma instância do prisma que já está declarada no topo do seu arquivo
+  return await prisma.case.update({
+    where: { id: id },
+    data: { status: status },
+  });
+}
+
+// Adicione ela no exports no final do arquivo:
+module.exports = {
+  createCaseFromTriage, // a que você já tinha
+  updateCaseStatus      // a nossa nova
+};
+
+module.exports = { classifyCase, createCaseFromTriage, getCasesByOffice, getCaseById, updateCase, updateCaseStatus };

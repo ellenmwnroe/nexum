@@ -1,18 +1,7 @@
-### Testar a criação de Triagem
-POST http://localhost:3000/triagem
+### Atualizar Status do Caso
+PATCH http://localhost:3000/cases/a300e68c-5f2d-46d4-9fd8-ca10e5c1a1af/status
 Content-Type: application/json
 
 {
-  "lgpd": "sim",
-  "nome": "Ellen Teste Rápido",
-  "telefone": "98999999999",
-  "email": "ellen@teste.com",
-  "cpf": "11122233344",
-  "rg": "123456789",
-  "cep": "65000000",
-  "endereco_compl": "Rua Automação, 123",
-  "empresa": "Firma Falsa",
-  "funcao": "Desenvolvedora",
-  "situacao": "demitido_sem_justa",
-  "office_id": "escritorio-teste"
+  "status": "EM_ANALISE"
 }

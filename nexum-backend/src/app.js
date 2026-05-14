@@ -3,6 +3,8 @@ const cors = require("cors");
 const caseRoutes = require("./routes/case.routes");
 const triagemRoutes = require("./routes/triagem.routes");
 const path = require("path");
+const caseController = require('./controllers/case.controller');
+
 
 const app = express();
 
@@ -51,6 +53,10 @@ app.post('/upload-documento', upload.array('documentos', 10), (req, res) => {
   const nomesSalvos = req.files.map(file => file.filename).join(', ');
   res.json({ fileNames: nomesSalvos });
 });
+
+// Crie a rota que aponta direto para a função do controller
+app.patch('/cases/:id/status', caseController.updateStatus);
+
 app.listen(PORT, () => {
   console.log(`🚀 Servidor Nexum rodando na porta ${PORT}`);
   console.log(`📡 Cases: http://localhost:${PORT}/cases`);

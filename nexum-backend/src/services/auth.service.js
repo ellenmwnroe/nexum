@@ -2,7 +2,6 @@ const prisma = require('../lib/prisma');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// definir isso no .env
 const JWT_SECRET = process.env.JWT_SECRET || 'chave_secreta_do_escritorio_nexum';
 
 async function login(email, password) {

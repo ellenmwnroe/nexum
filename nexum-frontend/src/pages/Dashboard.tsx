@@ -27,31 +27,47 @@ function Dashboard() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [casoAberto, setCasoAberto] = useState<CaseItem | null>(null);
   const [textosObservacao, setTextosObservacao] = useState<Record<string, string>>({});
-  const [filtroStatus, setFiltroStatus] = useState(''); // Vazio significa "Todos"
+  const [filtroStatus, setFiltroStatus] = useState('TODOS');
   const [ordenacao, setOrdenacao] = useState('recentes'); // 'recentes' ou 'prioridade'
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
 
-  // Função que busca os dados no Back-end
+ // Função que busca os casos blindados no Back-end
   const carregarCasos = async () => {
     try {
-      // Monta a URL dinâmica: se tiver filtro, adiciona o ?status=
-      let url = 'http://localhost:3000/api/cases';
-      if (filtroStatus) {
-        url += `?status=${filtroStatus}`;
+      // 1. Pega a "Pulseira VIP" (Token) que o Login salvou
+      const token = localStorage.getItem('@Nexum:token');
+
+      // Se você envia o filtro para o back-end, a URL muda dinamicamente:
+      const url = (filtroStatus && filtroStatus !== 'TODOS') 
+        ? `http://localhost:3000/api/cases?status=${filtroStatus}` 
+        : 'http://localhost:3000/api/cases';
+        
+      // 2. Bate na porta do servidor mostrando o crachá
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // 👈 A mágica que resolve o erro 401!
+        }
+      });
+
+      if (res.ok) {
+        // 3. Lê o pacote que o Back-end mandou
+        const json = await res.json();
+        
+        // 4. Salva APENAS a lista de casos (json.data) no estado do React
+        setCases(json.data); 
+      } else if (res.status === 401) {
+        // Se o token expirou ou é inválido
+        console.error("Acesso Negado (401). Token ausente ou inválido.");
+        alert("Sessão expirada. Por favor, faça login novamente.");
       }
-
-      const res = await fetch(url);
-      const payload = await res.json();
-
-      // Garante que estamos pegando a lista de dentro de payload.data
-      const listaFinal = Array.isArray(payload.data) ? payload.data : Array.isArray(payload) ? payload : [];
-      setCases(listaFinal);
-    } catch (err) {
-      console.error("Erro ao buscar casos:", err);
+    } catch (error) {
+      console.error("Erro ao buscar casos do servidor:", error);
     }
   };
 
-  // O segredo da Story 3: toda vez que 'filtroStatus' mudar, o useEffect roda de novo!
+  // toda vez que 'filtroStatus' mudar, ou a tela carregar, ele roda
   useEffect(() => {
     carregarCasos();
   }, [filtroStatus]);
@@ -84,57 +100,59 @@ function Dashboard() {
     upload_docs: "Documentos anexados"
   };
 
-  // Formata os valores para ficarem com cara de texto normal
-  const formatarValorResposta = (valor: string) => {
-    if (!valor) return '-';
-    if (valor.toLowerCase() === 'sim' || valor.toLowerCase() === 'nao') {
-      return valor.charAt(0).toUpperCase() + valor.slice(1);
-    }
-    const limpo = valor.replace(/_/g, ' ');
-    return limpo.charAt(0).toUpperCase() + limpo.slice(1);
-  };
-
   const atualizarStatus = async (id: string, novoStatus: string) => {
-    try {
-      const res = await fetch(`http://localhost:3000/api/cases/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: novoStatus }),
-      });
+  try {
+    // 1. Pega o token salvo no login
+    const token = localStorage.getItem('@Nexum:token');
 
-      if (res.ok) {
-        // Atualiza a lista local para o advogado ver a mudança na hora
-        setCases(prev => prev.map(c => c.id === id ? { ...c, status: novoStatus } : c));
-        alert("Status atualizado com sucesso!");
-      }
-    } catch (err) {
-      console.error("Erro ao salvar status:", err);
+    const res = await fetch(`http://localhost:3000/api/cases/${id}`, {
+      method: 'PATCH',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` // 👈 Mostrando o crachá para o Back-end!
+      },
+      body: JSON.stringify({ status: novoStatus }),
+    });
+
+    if (res.ok) {
+      setCases(prev => prev.map(c => c.id === id ? { ...c, status: novoStatus } : c));
+      alert("Status updated successfully!");
+    } else if (res.status === 401) {
+      alert("Sessão expirada. Faça login novamente.");
     }
-  };
+  } catch (err) {
+    console.error("Erro ao salvar status:", err);
+  }
+};
 
-  // Função para enviar a nota pro banco
-  const salvarObservacao = async (id: string) => {
-    const textoParaSalvar = textosObservacao[id];
+const salvarObservacao = async (id: string) => {
+  const textoParaSalvar = textosObservacao[id];
 
-    // Se não digitou nada de novo, não faz requisição à toa
-    if (textoParaSalvar === undefined) return;
+  if (textoParaSalvar === undefined) return;
 
-    try {
-      const res = await fetch(`http://localhost:3000/api/cases/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: textoParaSalvar }),
-      });
+  try {
+    // 1. Pega o token salvo no login
+    const token = localStorage.getItem('@Nexum:token');
 
-      if (res.ok) {
-        // Atualiza a lista visualmente
-        setCases(prev => prev.map(c => c.id === id ? { ...c, notes: textoParaSalvar } : c));
-        alert("Observação salva com sucesso!");
-      }
-    } catch (err) {
-      console.error("Erro ao salvar observação:", err);
+    const res = await fetch(`http://localhost:3000/api/cases/${id}`, {
+      method: 'PATCH',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` 
+      },
+      body: JSON.stringify({ notes: textoParaSalvar }),
+    });
+
+    if (res.ok) {
+      setCases(prev => prev.map(c => c.id === id ? { ...c, notes: textoParaSalvar } : c));
+      alert("Observação salva com sucesso!");
+    } else if (res.status === 401) {
+      alert("Sessão expirada. Faça login novamente.");
     }
-  };
+  } catch (err) {
+    console.error("Erro ao salvar observação:", err);
+  }
+};
 
   // 1. Dicionário de Status
   const mapaStatus: Record<string, string> = {
@@ -251,6 +269,20 @@ function Dashboard() {
             <option value="HORAS_EXTRAS">Horas Extras</option>
             <option value="FGTS">FGTS / Rescisão</option>
             <option value="GERAL_TRABALHISTA">Geral Trabalhista</option>
+          </select>
+
+            {/* Filtro de Status */}
+          <select
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value)}
+            className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-[#3a4f99] focus:border-[#3a4f99] block p-2.5 font-medium cursor-pointer"
+          >
+            <option value="TODOS">Todos os Status</option>
+            <option value="NOVO">Novos</option>
+            <option value="EM_ANALISE">Em Análise</option>
+            <option value="CONTATADO">Contatados</option>
+            <option value="CONTRATADO">Contratados</option>
+            <option value="DESCARTADO">Descartados</option>
           </select>
         </div>
 

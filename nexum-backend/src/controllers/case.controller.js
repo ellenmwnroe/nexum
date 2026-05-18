@@ -2,8 +2,12 @@ const caseService = require("../services/case.service");
 
 async function listCases(req, res) {
   try {
-    const officeId = req.query.office_id;
-    const status = req.query.status; // 👈 NOVA LINHA: Captura o ?status= da URL
+    // o officeId que o middleware extraiu do Token JWT
+    const officeId = req.officeId; 
+    
+    // O status ainda pode vir da URL (ex: ?status=NOVO), não tem problema!
+    const status = req.query.status; 
+    
     const cases = await caseService.getCasesByOffice(officeId, status);
 
     return res.status(200).json({
@@ -18,7 +22,6 @@ async function listCases(req, res) {
     });
   }
 }
-
 async function getCaseById(req, res) {
   try {
     // Pega o ID da URL e manda pro Service trabalhar

@@ -1,20 +1,26 @@
+import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-// Este componente funciona como um "Segurança de Balada"
-export function PrivateRoute({ children }: { children: React.ReactNode }) {
+interface PrivateRouteProps {
+  readonly children: ReactNode;
+}
+
+export function PrivateRoute({ children }: PrivateRouteProps) {
   const { signed, loading } = useAuth();
 
   if (loading) {
-    // Enquanto o React checa o LocalStorage, mostramos um loading genérico
-    return <div className="h-screen flex items-center justify-center">Carregando...</div>;
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-[#ecece5]">
+        <div className="w-10 h-10 border-4 border-[#3a4f99]/20 border-t-[#3a4f99] rounded-full animate-spin mb-4"></div>
+        <p className="text-[#13233d] font-bold animate-pulse">Carregando...</p>
+      </div>
+    );
   }
 
   if (!signed) {
-    // Se não estiver logado (sem pulseira VIP), chuta pro Login!
     return <Navigate to="/login" replace />;
   }
 
-  // Se estiver logado, deixa passar
   return <>{children}</>;
 }

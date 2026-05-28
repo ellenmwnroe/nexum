@@ -3,6 +3,7 @@ import {
   User, Briefcase, Calendar,
   ChevronDown, ChevronUp, FileText, AlertTriangle
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import DetalhesDoCaso from './DetalhesDoCaso';
 
 interface CaseItem {
@@ -41,7 +42,7 @@ function Dashboard() {
       const url = (filtroStatus && filtroStatus !== 'TODOS') 
         ? `http://localhost:3000/api/cases?status=${filtroStatus}` 
         : 'http://localhost:3000/api/cases';
-        
+
       // 2. Bate na porta do servidor mostrando o crachá
       const res = await fetch(url, {
         method: 'GET',
@@ -81,11 +82,6 @@ function Dashboard() {
     if (!dateStr) return "--/--/----";
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
-
-  // Se tiver um caso aberto, esconde o Dashboard e mostra o Dossiê
-  if (casoAberto) {
-    return <DetalhesDoCaso casoBruto={casoAberto} onVoltar={() => setCasoAberto(null)} />;
-  }
 
   const dicionarioTriagem: Record<string, string> = {
     carteira_assinada: "Trabalhava com carteira assinada?",
@@ -200,7 +196,7 @@ const salvarObservacao = async (id: string) => {
 
     // Se não estiver (ex: um texto livre que o cliente digitou),
     // apenas capitaliza a primeira letra e tira os underlines, se houver.
-    const limpo = texto.replace(/_/g, ' ');
+    const limpo = texto.replaceAll(/_/g, ' ');
     return limpo.charAt(0).toUpperCase() + limpo.slice(1);
   };
 
@@ -231,13 +227,53 @@ const salvarObservacao = async (id: string) => {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
+  const navigate = useNavigate();
+  
+   // Se tiver um caso aberto, esconde o Dashboard e mostra o Dossiê
+  if (casoAberto) {
+    return <DetalhesDoCaso casoBruto={casoAberto} onVoltar={() => setCasoAberto(null)} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#ecece5] p-6 md:p-10 font-sans">
       <div className="max-w-5xl mx-auto">
-        <header className="mb-10">
-          <h1 className="text-4xl font-black text-[#13233d] mb-2 tracking-tight">Nexum Dashboard</h1>
-          <p className="text-gray-500 font-medium italic">Análise de leads e triagens em tempo real.</p>
+        <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
+          {/* Lado Esquerdo: Títulos */}
+          <div>
+            <h1 className="text-3xl md:text-4xl font-black text-[#13233d] mb-1 md:mb-2 tracking-tight">Nexum Dashboard</h1>
+            <p className="text-sm md:text-base text-gray-500 font-medium italic">Análise de leads e triagens em tempo real.</p>
+          </div>
+
+          {/* Lado Direito: Perfil e Configurações responsivo */}
+          <div className="w-full md:w-auto flex items-center justify-between md:justify-start gap-3 bg-white p-2 pr-4 rounded-full border border-gray-200 shadow-sm shrink-0">
+            
+            {/* Agrupamento do Avatar e Nome para ficarem juntos na esquerda no mobile */}
+            <div className="flex items-center gap-3">
+              {/* Avatarzinho (Iniciais) */}
+              <div className="w-10 h-10 bg-[#13233d] text-white rounded-full flex items-center justify-center font-bold tracking-widest shadow-inner shrink-0">
+                EM
+              </div>
+              
+              {/* Nome e Cargo (Agora sempre visível) */}
+              <div className="flex flex-col mr-2">
+                <span className="text-sm font-bold text-[#13233d] leading-none">Ellen Monroe</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">Admin</span>
+              </div>
+            </div>
+
+            {/* Linha Divisória (Só aparece no PC) */}
+            <div className="hidden md:block w-px h-8 bg-gray-100 mx-1"></div>
+
+            {/* Botão de Configurações Elegante (Fica na extrema direita no mobile) */}
+            <button 
+              onClick={() => navigate('/configuracoes')}
+              className="p-2 text-gray-400 hover:text-[#13233d] hover:bg-gray-50 rounded-full transition-all duration-300 shrink-0"
+              title="Configurações do Sistema"
+            >
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            </button>
+
+          </div>
         </header>
 
         {/* BARRA DE FILTROS */}

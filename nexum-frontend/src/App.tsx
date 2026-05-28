@@ -7,6 +7,11 @@ import Home from './pages/Home';
 import Triagem from './pages/Triagem';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login'; 
+import Configuracoes from './pages/Configuracoes';
+import { ConfiguracoesEscritorio } from './pages/ConfiguracoesEscritorio'; 
+import { ConfiguracoesChatbot } from './pages/ConfiguracoesChatbot';
+
+
 
 function App() {
   return (
@@ -14,9 +19,9 @@ function App() {
       <AuthProvider>
         <Routes>
           {/* Rotas Públicas */}
-          <Route path="/" element={<Home />} />
-          <Route path="/triagem" element={<Triagem />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/triagem/:officeId" element={<Triagem />} />
 
           {/* Rota Protegida */}
           <Route 
@@ -27,6 +32,34 @@ function App() {
               </PrivateRoute>
             } 
           />
+          
+          <Route 
+          path="/configuracoes" 
+          element={
+            <PrivateRoute>
+              <Configuracoes />
+            </PrivateRoute>
+            } 
+          />
+          
+          <Route 
+          path="/configuracoes/escritorio" 
+          element={
+            <PrivateRoute>
+              <ConfiguracoesEscritorio />
+            </PrivateRoute>
+          } 
+          />
+
+          <Route 
+          path="/configuracoes/chatbot" 
+          element={
+            <PrivateRoute>
+              <ConfiguracoesChatbot />
+            </PrivateRoute>
+          } 
+          />
+
         </Routes>
       </AuthProvider>
     </Router>

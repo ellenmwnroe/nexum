@@ -16,7 +16,15 @@ model Office {
   name       String
   cnpj       String?
   created_at DateTime @default(now())
-
+  phone      String?  
+  email      String?
+  address    String?  
+  logo_url   String?
+  bot_name            String?
+  bot_avatar_url      String?
+  bot_welcome_message String?
+  bot_privacy_message String?
+  primary_color       String? @default("#3a4f99")
   lawyers Lawyer[]
   cases   Case[]
 }
@@ -26,6 +34,8 @@ model Lawyer {
   office_id  String
   name       String
   email      String   @unique
+  phone      String?
+  avatar_url String?
   password   String
   role       String
   created_at DateTime @default(now())

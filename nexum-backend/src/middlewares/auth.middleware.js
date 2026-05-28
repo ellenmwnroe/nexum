@@ -26,6 +26,7 @@ function ensureAuthenticated(req, res, next) {
     // 4. Manda o fluxo seguir em frente (acesso liberado!)
     return next();
   } catch (err) {
+    console.error('Falha na validação do token JWT:', err.message);
     return res.status(401).json({ error: 'Token inválido ou expirado.' });
   }
 }

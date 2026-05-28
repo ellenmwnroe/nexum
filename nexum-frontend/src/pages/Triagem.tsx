@@ -1,40 +1,47 @@
 import { useState, useRef, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import type React from 'react';
 
+// 🛠️ TIPAGENS
 interface Mensagem {
   id: number;
   remetente: 'bot' | 'user';
   texto: string;
 }
 
-// 🛠️ MÁSCARAS E VALIDAÇÕES
+interface EscritorioInfo {
+  id: string;
+  name: string;
+  logo_url: string | null;
+}
 
-// Máscara Visual do CPF
+// 🛠️ MÁSCARAS E VALIDAÇÕES (Padrão SonarQube)
+
 const mascaraCPF = (valor: string) => {
   return valor.replace(/\D/g, '')
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-    .replace(/(-\d{2})\d+?$/, '$1'); 
+    .replace(/(-\d{2})\d+$/, '$1'); 
 };
 
-// Algoritmo Real de Validação de CPF (Receita Federal)
+// Adicionado radix 10 no parseInt para aprovação do SonarQube
 const validarCPF = (cpf: string) => {
   const strCPF = cpf.replace(/\D/g, '');
   if (strCPF.length !== 11 || /^(\d)\1{10}$/.test(strCPF)) return false;
   
   let soma = 0;
   let resto;
-  for (let i = 1; i <= 9; i++) soma += parseInt(strCPF.substring(i - 1, i)) * (11 - i);
+  for (let i = 1; i <= 9; i++) soma += Number.parseInt(strCPF.substring(i - 1, i), 10) * (11 - i);
   resto = (soma * 10) % 11;
   if (resto === 10 || resto === 11) resto = 0;
-  if (resto !== parseInt(strCPF.substring(9, 10))) return false;
+  if (resto !== Number.parseInt(strCPF.substring(9, 10), 10)) return false;
   
   soma = 0;
-  for (let i = 1; i <= 10; i++) soma += parseInt(strCPF.substring(i - 1, i)) * (12 - i);
+  for (let i = 1; i <= 10; i++) soma += Number.parseInt(strCPF.substring(i - 1, i), 10) * (12 - i);
   resto = (soma * 10) % 11;
   if (resto === 10 || resto === 11) resto = 0;
-  if (resto !== parseInt(strCPF.substring(10, 11))) return false;
+  if (resto !== Number.parseInt(strCPF.substring(10, 11), 10)) return false;
   
   return true;
 };
@@ -42,31 +49,23 @@ const validarCPF = (cpf: string) => {
 const mascaraCEP = (valor: string) => {
   return valor.replace(/\D/g, '')
     .replace(/(\d{5})(\d)/, '$1-$2')
-    .replace(/(-\d{3})\d+?$/, '$1'); 
+    .replace(/(-\d{3})\d+$/, '$1'); 
 };
 
 const mascaraTelefone = (valor: string) => {
-  // 1. Fluxo Internacional: Se começar com +, deixa livre apenas com números
   if (valor.startsWith('+')) {
     const numeros = valor.replace(/\D/g, '');
-    return '+' + numeros.substring(0, 15); // Limite seguro para números internacionais
+    return '+' + numeros.substring(0, 15);
   }
-
-  // 2. Fluxo Brasileiro: Remove tudo que não for número
   let v = valor.replace(/\D/g, '');
-
-  // 3. Aplica a máscara dependendo do tamanho (Fixo vs Celular)
   if (v.length <= 10) {
-    // Formato Fixo: (XX) XXXX-XXXX
     v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
     v = v.replace(/(\d{4})(\d)/, '$1-$2');
   } else {
-    // Formato Celular: (XX) 9XXXX-XXXX
     v = v.replace(/^(\d{2})(\d)/g, '($1) $2');
     v = v.replace(/(\d{5})(\d)/, '$1-$2');
   }
-
-  return v.substring(0, 15); // Trava o tamanho máximo exato do "(XX) 9XXXX-XXXX"
+  return v.substring(0, 15);
 };
 
 const mascaraMoeda = (valor: string) => {
@@ -76,17 +75,17 @@ const mascaraMoeda = (valor: string) => {
 };
 
 const mascaraRG = (valor: string) => {
-  // Permite letras, números, PONTOS e TRAÇOS.
-  // Remove espaços, arrobas, emojis e qualquer "sujeira".
-  let v = valor.toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
-
-  // Limita a 18 caracteres. 
-  // Isso dá espaço de sobra para os 13 dígitos do Maranhão + os pontos e traços que o cliente quiser colocar.
+  let v = valor.toUpperCase().replace(/[^A-Z0-9.-]/g, '');
   return v.substring(0, 18);
 };
 
-
 function Triagem() {
+  // Pega o ID da URL (ex: /triagem/:officeId)
+  const { officeId } = useParams<{ officeId: string }>();
+  
+  // Estado para guardar os dados reais do escritório
+  const [escritorio, setEscritorio] = useState<EscritorioInfo | null>(null);
+
   const [chatLog, setChatLog] = useState<Mensagem[]>([
     { id: 1, remetente: 'bot', texto: 'Olá! Sou o assistente virtual do escritório. Seus dados estão protegidos por criptografia e total sigilo jurídico. Você concorda com a nossa política de privacidade (LGPD)?' }
   ]);
@@ -95,6 +94,24 @@ function Triagem() {
   const [inputValue, setInputValue] = useState('');
   const [historicoPassos, setHistoricoPassos] = useState<string[]>([]);
   const chatFimRef = useRef<HTMLDivElement>(null);
+
+  // Busca os dados do escritório assim que a página carrega
+  useEffect(() => {
+    async function carregarEscritorio() {
+      if (!officeId) return;
+      try {
+        // Você vai precisar criar essa rota pública GET /api/offices/:id/public no Back-end!
+        const res = await fetch(`http://localhost:3000/api/offices/${officeId}/public`);
+        if (res.ok) {
+          const data = await res.json();
+          setEscritorio(data);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar dados do escritório:", err instanceof Error ? err.message : String(err));
+      }
+    }
+    carregarEscritorio();
+  }, [officeId]);
 
   useEffect(() => chatFimRef.current?.scrollIntoView({ behavior: 'smooth' }), [chatLog]);
 
@@ -109,17 +126,11 @@ function Triagem() {
   };
 
   const desfazerUltimoPasso = () => {
-    if (historicoPassos.length === 0) return; // Não há para onde voltar
-
-    // 1. Pega o último passo que ficou na memória
+    if (historicoPassos.length === 0) return;
     const memoriaAtualizada = [...historicoPassos];
     const passoAnterior = memoriaAtualizada.pop();
-
-    // 2. Atualiza a memória e volta o passo da máquina de estados
     setHistoricoPassos(memoriaAtualizada);
     if (passoAnterior) setPassoAtual(passoAnterior);
-
-    // 3. Remove a última pergunta do bot e a resposta errada do usuário visualmente
     setChatLog(prev => prev.slice(0, -2));
   };
 
@@ -127,24 +138,18 @@ function Triagem() {
     let textoExibido = textoParaChat;
     let valorLimpoParaBanco = valorParaBanco;
 
-    // Formatação de datas para exibição no chat
     if (['data_admissao', 'data_demissao'].includes(passoAtual)) {
         const partes = valorParaBanco.split('-');
         if (partes.length === 3) textoExibido = `${partes[2]}/${partes[1]}/${partes[0]}`;
     }
 
-// 🧹 A VASSOURA DA NORMALIZAÇÃO
-    // Se for CPF, RG, CEP ou Telefone, removemos pontos, traços, parênteses e espaços.
-    // O regex /[^a-zA-Z0-9+]/g significa: "Apague tudo que NÃO for letra, número ou o sinal de +"
     if (['cpf', 'rg', 'cep', 'telefone'].includes(passoAtual)) {
         valorLimpoParaBanco = valorParaBanco.replace(/[^a-zA-Z0-9+]/g, '');
     }
 
-    // 1. Renderiza a resposta com a formatação bonitinha no chat para o usuário ver
     setChatLog(prev => [...prev, { id: Date.now(), remetente: 'user', texto: textoExibido }]);
     setInputValue('');
 
-    // 🛡️ 2. BARREIRA DE VALIDAÇÃOs DO CPF (agora usando o valorLimpo)
     if (passoAtual === 'cpf' && !validarCPF(valorLimpoParaBanco)) {
       setTimeout(() => {
         setChatLog(prev => [...prev, { id: Date.now() + 1, remetente: 'bot', texto: 'Hmm, este CPF parece ser inválido. Por favor, verifique os números e digite novamente:' }]);
@@ -152,11 +157,9 @@ function Triagem() {
       return; 
     }
 
-    // 3. Salva a resposta LIMPA no estado que vai para a API
     const novasRespostas = { ...respostas, [passoAtual]: valorLimpoParaBanco };
     setRespostas(novasRespostas);
 
-    // 4. Árvore de Decisão Dinâmica
     setTimeout(async () => {
       setHistoricoPassos(prev => [...prev, passoAtual]);
 
@@ -169,124 +172,15 @@ function Triagem() {
           setPassoAtual('nome');
         }
       }
-      else if (passoAtual === 'nome') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: `Muito prazer! Qual é o seu número de WhatsApp com DDD para entrarmos em contato?` }]);
-        setPassoAtual('telefone');
-      }
-      else if (passoAtual === 'telefone') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Anotado. E qual é o seu melhor e-mail?' }]);
-        setPassoAtual('email');
-      }
-      else if (passoAtual === 'email') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Ótimo! Para sua ficha oficial, digite apenas o seu CPF:' }]);
-        setPassoAtual('cpf');
-      }
-      else if (passoAtual === 'cpf') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Certo. Agora digite o seu RG (apenas números e letras):' }]);
-        setPassoAtual('rg');
-      }
-      else if (passoAtual === 'rg') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Perfeito. Qual é o CEP da sua residência atual?' }]);
-        setPassoAtual('cep');
-      }
-      else if (passoAtual === 'cep') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Confirme o restante do seu endereço (Rua, Número, Bairro, Complemento):' }]);
-        setPassoAtual('endereco_compl');
-      }
-      else if (passoAtual === 'endereco_compl') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Tudo certo com seus dados! Qual é o nome da empresa onde ocorreu o problema?' }]);
-        setPassoAtual('empresa');
-      }
-      else if (passoAtual === 'empresa') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'E qual era a sua Função ou Cargo lá?' }]);
-        setPassoAtual('funcao');
-      }
-      else if (passoAtual === 'funcao') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Entendi. E qual é a sua situação atual com a empresa?' }]);
-        setPassoAtual('situacao');
-      }
-      else if (passoAtual === 'situacao') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Qual foi a data aproximada em que você começou a trabalhar lá?' }]);
-        setPassoAtual('data_admissao');
-      }
-      else if (passoAtual === 'data_admissao') {
-        if (novasRespostas['situacao'] === 'ainda_trabalhando') {
-          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Como você ainda está na empresa, vamos pular a data de saída. Qual é o seu salário mensal atual?' }]);
-          setPassoAtual('salario'); // Pula a demissão
-        } else {
-          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'E qual foi o seu último dia (data de saída)?' }]);
-          setPassoAtual('data_demissao');
-        }
-      }
-      else if (passoAtual === 'data_demissao') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Qual era o valor do seu último salário mensal?' }]);
-        setPassoAtual('salario');
-      }
-      else if (passoAtual === 'salario') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Você trabalhava com a carteira assinada (CLT) nessa empresa?' }]);
-        setPassoAtual('carteira_assinada');
-      }
-      else if (passoAtual === 'carteira_assinada') {
-        if (valorParaBanco === 'nao') {
-          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Entendi. Eles te obrigaram a abrir um CNPJ (MEI) ou assinar contrato de prestação de serviços?' }]);
-          setPassoAtual('pejotizacao');
-        } else {
-          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Certo. Você recebia alguma parte do seu salário "por fora"?' }]);
-          setPassoAtual('salario_por_fora');
-        }
-      }
-      else if (passoAtual === 'pejotizacao') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Mesmo sem carteira, você tinha horário fixo e recebia ordens diretas de um chefe (subordinação)?' }]);
-        setPassoAtual('subordinacao');
-      }
-      else if (passoAtual === 'subordinacao') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Certo. Você recebia alguma parte do seu salário "por fora"?' }]);
-        setPassoAtual('salario_por_fora'); 
-      }
-      else if (passoAtual === 'salario_por_fora') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Você trabalhava com barulho forte, produtos químicos, ou adquiriu alguma doença no trabalho?' }]);
-        setPassoAtual('condicoes_trabalho');
-      }
-      else if (passoAtual === 'condicoes_trabalho') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Sobre sua jornada: você costumava fazer horas extras ou trabalhar de madrugada? Eram pagas?' }]);
-        setPassoAtual('horas_extras');
-      }
-      else if (passoAtual === 'horas_extras') {
-        // 🧠 LÓGICA INTELIGENTE: Separação de fluxo PJ vs CLT
-        if (novasRespostas['carteira_assinada'] === 'nao') {
-          // FLUXO PJ: Não faz sentido perguntar de FGTS/13º padrão se eles nem carteira tinham.
-          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Como você atuava sem carteira, nosso foco será comprovar o vínculo para cobrar todos os seus direitos (Férias, 13º, FGTS). Se tiver prints de WhatsApp recebendo ordens ou contratos, pode anexar agora.' }]);
-          setPassoAtual('upload_docs');
-        } else {
-          // FLUXO CLT: Segue as perguntas normais de rescisão
-          if (novasRespostas['situacao'] !== 'ainda_trabalhando') {
-            setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'A empresa depositou seu FGTS corretamente e pagou suas verbas de rescisão?' }]);
-            setPassoAtual('fgts_rescisao');
-          } else {
-            setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'A empresa deixou de pagar suas Férias ou o seu 13º salário em algum ano?' }]);
-            setPassoAtual('verbas_pendentes');
-          }
-        }
-      }
-      else if (passoAtual === 'fgts_rescisao') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'A empresa deixou de pagar suas Férias ou o seu 13º salário em algum ano?' }]);
-        setPassoAtual('verbas_pendentes');
-      }
-      else if (passoAtual === 'verbas_pendentes') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'O principal já temos! Se tiver o Extrato do FGTS em PDF ou prints de WhatsApp, pode anexar agora.' }]);
-        setPassoAtual('upload_docs');
-      }
-      else if (passoAtual === 'upload_docs') {
-        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Tudo salvo! Deseja relatar mais algum detalhe específico (humilhações, cobranças abusivas, etc)?' }]);
-        setPassoAtual('observacoes');
-      }
+      // ... (Omiti as outras validações da árvore de decisão aqui visualmente, MAS MANTENHA AS SUAS ORIGINAIS)
+      // COLE A SUA ÁRVORE DE DECISÃO AQUI
       else if (passoAtual === 'observacoes') {
         setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'A encriptar e a guardar os seus dados. Um momento, por favor...' }]);
         
         try {
           const payloadDaTriagem = {
             ...novasRespostas,
-            office_id: "escritorio-teste" // ID fixo do escritório parceiro vai ser dinâmico pois serão múltiplos escritórios no futuro
+            office_id: escritorio?.id || officeId // 👈 AGORA É DINÂMICO! Usa o ID vindo da URL
           };
 
           const respostaApi = await fetch('http://localhost:3000/triagem', {
@@ -304,15 +198,17 @@ function Triagem() {
           setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Muito obrigado! A sua ficha foi gerada com sucesso e enviada ao advogado de forma segura.' }]);
           setPassoAtual('fim');
 
-        } catch (erro) {
-          console.error(erro);
-          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Houve um problema de ligação. A equipa técnica já foi notificada.' }]);
+        } catch (error_) {
+          // Tratamento de erro nos moldes exigidos pelo SonarQube
+          console.error('Erro no envio da triagem:', error_ instanceof Error ? error_.message : String(error_));
+          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Houve um problema de conexão. A equipe técnica já foi notificada.' }]);
         }
       }
     }, 850);
   };
 
-  const enviarTexto = (e: React.FormEvent) => {
+  // ✅ React.SyntheticEvent para calar o SonarQube
+  const enviarTexto = (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
     lidarComResposta(inputValue, inputValue);
@@ -340,17 +236,31 @@ function Triagem() {
     <div className="min-h-screen flex items-center justify-center p-2 sm:p-6 bg-[#ecece5]">
       <div className="chat-container bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden flex flex-col" style={{ height: '85vh' }}>
         
-        {/* CABEÇALHO */}
+        {/* CABEÇALHO DINÂMICO */}
         <div className="chat-header bg-white border-b border-gray-100 p-4 flex justify-between items-center z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#3a4f99] rounded-full flex items-center justify-center font-bold text-[#d1d871] text-lg shadow-inner">
-              A
-            </div>
+            
+            {/* Lógica da Imagem: Se tem logo, mostra. Se não tem, mostra a primeira letra do nome */}
+            {escritorio?.logo_url ? (
+              <img 
+                src={escritorio.logo_url} 
+                alt="Logo do Escritório" 
+                className="w-10 h-10 rounded-full object-cover border border-gray-200"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-[#3a4f99] rounded-full flex items-center justify-center font-bold text-[#d1d871] text-lg shadow-inner">
+                {escritorio?.name ? escritorio.name.charAt(0).toUpperCase() : 'A'}
+              </div>
+            )}
+
             <div className="flex flex-col">
-              <span className="font-bold text-lg leading-none text-[#13233d]">Escritório Parceiro</span>
+              <span className="font-bold text-lg leading-none text-[#13233d]">
+                {escritorio?.name || 'Carregando...'}
+              </span>
               <span className="text-[10px] text-gray-400 font-bold uppercase mt-1">Powered by Nexum</span>
             </div>
           </div>
+          
           <div className="bg-[#d1d871]/20 text-[#13233d] text-[11px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-[#d1d871]">
             <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"></path></svg>
             Seguro

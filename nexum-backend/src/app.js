@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
+const path = require("node:path");
 const multer = require('multer');
 
 // Imports
@@ -9,11 +9,19 @@ const caseRoutes = require("./routes/case.routes");
 const triagemRoutes = require("./routes/triagem.routes");
 const caseController = require('./controllers/case.controller');
 const officeRoutes = require("./routes/office.routes");
+const lawyerRoutes = require("./routes/lawyer.routes");
 
 // 1. INICIALIZAÇÃO DO APP
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.disable('x-powered-by');
+
+app.use(cors({
+  origin: 'http://localhost:5173', // trocar pela URL real eventualmente
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], // O que o Front pode fazer
+  allowedHeaders: ['Content-Type', 'Authorization'] // Cabeçalhos permitidos
+}));
+
+app.use(express.json({ limit: '5mb' }));
 
 // 2. CONFIGURAÇÃO DE PASTAS PÚBLICAS (Apenas 1 vez, do jeito certo)
 app.use('/ficheiros', express.static(path.join(__dirname, '../uploads')));
@@ -28,7 +36,11 @@ const storage = multer.diskStorage({
     cb(null, nomeSeguro);
   }
 });
-const upload = multer({ storage: storage });
+
+const upload = multer({ 
+  storage: storage, 
+  limits: { fileSize: 5 * 1024 * 1024 } 
+});
 
 // ---------------------------------------------------
 // 4. ROTAS SOLTAS (Login e Upload)
@@ -64,12 +76,13 @@ app.patch('/cases/:id/status', caseController.updateStatus);
 app.use("/cases", caseRoutes);
 app.use("/triagem", triagemRoutes);
 app.use("/office", officeRoutes);
-
+app.use("/lawyer", lawyerRoutes);
 
 // Compatibilidade com frontend (se ainda estiver usando /api)
 app.use("/api/cases", caseRoutes);
 app.use("/api/triagem", triagemRoutes);
-app.use("/api/office", officeRoutes);
+app.use('/api/offices', officeRoutes);
+app.use("/api/lawyers", lawyerRoutes);
 
 
 // 6. LIGANDO O SERVIDOR

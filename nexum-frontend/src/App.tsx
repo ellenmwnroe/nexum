@@ -10,8 +10,7 @@ import Login from './pages/Login';
 import Configuracoes from './pages/Configuracoes';
 import { ConfiguracoesEscritorio } from './pages/ConfiguracoesEscritorio'; 
 import { ConfiguracoesChatbot } from './pages/ConfiguracoesChatbot';
-
-
+import { AdminLayout } from './components/AdminLayout';
 
 function App() {
   return (
@@ -23,41 +22,49 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/triagem/:officeId" element={<Triagem />} />
 
-          {/* Rota Protegida */}
+          {/* Rotas Protegidas com o AdminLayout */}
           <Route 
             path="/dashboard" 
             element={
               <PrivateRoute>
-                <Dashboard />
+                <AdminLayout>
+                  <Dashboard />
+                </AdminLayout>
               </PrivateRoute>
             } 
           />
           
           <Route 
-          path="/configuracoes" 
-          element={
-            <PrivateRoute>
-              <Configuracoes />
-            </PrivateRoute>
+            path="/configuracoes" 
+            element={
+              <PrivateRoute>
+                <AdminLayout>
+                  <Configuracoes />
+                </AdminLayout>
+              </PrivateRoute>
             } 
           />
           
           <Route 
-          path="/configuracoes/escritorio" 
-          element={
-            <PrivateRoute>
-              <ConfiguracoesEscritorio />
-            </PrivateRoute>
-          } 
+            path="/configuracoes/escritorio" 
+            element={
+              <PrivateRoute>
+                <AdminLayout>
+                  <ConfiguracoesEscritorio />
+                </AdminLayout>
+              </PrivateRoute>
+            } 
           />
 
           <Route 
-          path="/configuracoes/chatbot" 
-          element={
-            <PrivateRoute>
-              <ConfiguracoesChatbot />
-            </PrivateRoute>
-          } 
+            path="/configuracoes/chatbot" 
+            element={
+              <PrivateRoute>
+                <AdminLayout>
+                  <ConfiguracoesChatbot />
+                </AdminLayout>
+              </PrivateRoute>
+            } 
           />
 
         </Routes>

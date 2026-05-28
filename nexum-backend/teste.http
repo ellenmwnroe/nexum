@@ -1,5 +1,6 @@
+@baseUrl = http://localhost:3000
 ### Atualizar Status do Caso
-PATCH http://localhost:3000/cases/a300e68c-5f2d-46d4-9fd8-ca10e5c1a1af/status
+PATCH {{baseUrl}}/cases/a300e68c-5f2d-46d4-9fd8-ca10e5c1a1af/status
 Content-Type: application/json
 
 {

@@ -15,6 +15,12 @@ export default {
           cerulean: 'var(--color-cerulean)',
           olympic: 'var(--color-olympic)',
         }
+      },
+      fontFamily: {
+        // Substitui a fonte padrão do sistema pela Outfit para textos gerais
+        sans: ['Outfit', 'sans-serif'],
+        // Cria a classe font-title para usar a Bebas Neue
+        title: ['"Bebas Neue"', 'sans-serif'],
       }
     },
   },

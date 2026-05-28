@@ -16,7 +16,7 @@ const app = express();
 app.disable('x-powered-by');
 
 app.use(cors({
-  origin: 'http://localhost:5173', // trocar pela URL real eventualmente
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173', // trocar pela URL real eventualmente
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], // O que o Front pode fazer
   allowedHeaders: ['Content-Type', 'Authorization'] // Cabeçalhos permitidos
 }));
@@ -29,7 +29,7 @@ app.use('/ficheiros', express.static(path.join(__dirname, '../uploads')));
 // 3. CONFIGURAÇÃO DO MULTER (Upload de arquivos)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/') 
+    cb(null, 'uploads/')
   },
   filename: function (req, file, cb) {
     const nomeSeguro = Date.now() + '-' + file.originalname.replace(/\s/g, '_');
@@ -37,10 +37,13 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
-  storage: storage, 
-  limits: { fileSize: 5 * 1024 * 1024 } 
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
+const serverUrl = process.env.NODE_ENV === 'production'
+  ? 'Servidor em Produção'
+  : `http://localhost:${process.env.PORT || 3000}`;
 
 // ---------------------------------------------------
 // 4. ROTAS SOLTAS (Login e Upload)
@@ -89,8 +92,8 @@ app.use("/api/lawyers", lawyerRoutes);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor Nexum rodando na porta ${PORT}`);
-  console.log(`🔑 Login: http://localhost:${PORT}/login`);
-  console.log(`📡 Cases: http://localhost:${PORT}/cases`);
-  console.log(`📡 Triagem: http://localhost:${PORT}/triagem`);
-  console.log(`📡 Office: http://localhost:${PORT}/office`);
+  console.log(`🔑 Login: ${serverUrl}/login`);
+  console.log(`📡 Cases: ${serverUrl}/cases`);
+  console.log(`📡 Triagem: ${serverUrl}/triagem`);
+  console.log(`📡 Office: ${serverUrl}/office`);
 });

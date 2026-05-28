@@ -14,7 +14,7 @@ const Home = () => {
           </div>
           <span className="text-2xl font-bold text-[#13233d] tracking-tight">NEXUM</span>
         </div>
-        <button 
+        <button
           onClick={() => navigate('/dashboard')}
           className="text-[#3a4f99] font-semibold hover:text-[#13233d] transition-colors"
         >
@@ -34,9 +34,9 @@ const Home = () => {
           <p className="text-xl text-gray-600 mb-10 leading-relaxed max-w-lg">
             Otimize o atendimento do seu escritório com nossa triagem dinâmica. Identifique riscos de fraude e verbas pendentes antes mesmo da primeira reunião.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4">
-            <button 
+            <button
               onClick={() => navigate('/triagem')}
               className="px-8 py-4 bg-[#3a4f99] text-white rounded-xl font-bold text-lg hover:bg-[#13233d] transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
             >

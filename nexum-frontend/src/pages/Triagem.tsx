@@ -22,34 +22,34 @@ const mascaraCPF = (valor: string) => {
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-    .replace(/(-\d{2})\d+$/, '$1'); 
+    .replace(/(-\d{2})\d+$/, '$1');
 };
 
 // Adicionado radix 10 no parseInt para aprovação do SonarQube
 const validarCPF = (cpf: string) => {
   const strCPF = cpf.replace(/\D/g, '');
   if (strCPF.length !== 11 || /^(\d)\1{10}$/.test(strCPF)) return false;
-  
+
   let soma = 0;
   let resto;
   for (let i = 1; i <= 9; i++) soma += Number.parseInt(strCPF.substring(i - 1, i), 10) * (11 - i);
   resto = (soma * 10) % 11;
   if (resto === 10 || resto === 11) resto = 0;
   if (resto !== Number.parseInt(strCPF.substring(9, 10), 10)) return false;
-  
+
   soma = 0;
   for (let i = 1; i <= 10; i++) soma += Number.parseInt(strCPF.substring(i - 1, i), 10) * (12 - i);
   resto = (soma * 10) % 11;
   if (resto === 10 || resto === 11) resto = 0;
   if (resto !== Number.parseInt(strCPF.substring(10, 11), 10)) return false;
-  
+
   return true;
 };
 
 const mascaraCEP = (valor: string) => {
   return valor.replace(/\D/g, '')
     .replace(/(\d{5})(\d)/, '$1-$2')
-    .replace(/(-\d{3})\d+$/, '$1'); 
+    .replace(/(-\d{3})\d+$/, '$1');
 };
 
 const mascaraTelefone = (valor: string) => {
@@ -82,7 +82,7 @@ const mascaraRG = (valor: string) => {
 function Triagem() {
   // Pega o ID da URL (ex: /triagem/:officeId)
   const { officeId } = useParams<{ officeId: string }>();
-  
+
   // Estado para guardar os dados reais do escritório
   const [escritorio, setEscritorio] = useState<EscritorioInfo | null>(null);
 
@@ -101,7 +101,7 @@ function Triagem() {
       if (!officeId) return;
       try {
         // Você vai precisar criar essa rota pública GET /api/offices/:id/public no Back-end!
-        const res = await fetch(`http://localhost:3000/api/offices/${officeId}/public`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/offices/${officeId}/public`);
         if (res.ok) {
           const data = await res.json();
           setEscritorio(data);
@@ -139,12 +139,12 @@ function Triagem() {
     let valorLimpoParaBanco = valorParaBanco;
 
     if (['data_admissao', 'data_demissao'].includes(passoAtual)) {
-        const partes = valorParaBanco.split('-');
-        if (partes.length === 3) textoExibido = `${partes[2]}/${partes[1]}/${partes[0]}`;
+      const partes = valorParaBanco.split('-');
+      if (partes.length === 3) textoExibido = `${partes[2]}/${partes[1]}/${partes[0]}`;
     }
 
     if (['cpf', 'rg', 'cep', 'telefone'].includes(passoAtual)) {
-        valorLimpoParaBanco = valorParaBanco.replace(/[^a-zA-Z0-9+]/g, '');
+      valorLimpoParaBanco = valorParaBanco.replace(/[^a-zA-Z0-9+]/g, '');
     }
 
     setChatLog(prev => [...prev, { id: Date.now(), remetente: 'user', texto: textoExibido }]);
@@ -154,7 +154,7 @@ function Triagem() {
       setTimeout(() => {
         setChatLog(prev => [...prev, { id: Date.now() + 1, remetente: 'bot', texto: 'Hmm, este CPF parece ser inválido. Por favor, verifique os números e digite novamente:' }]);
       }, 600);
-      return; 
+      return;
     }
 
     const novasRespostas = { ...respostas, [passoAtual]: valorLimpoParaBanco };
@@ -176,14 +176,14 @@ function Triagem() {
       // COLE A SUA ÁRVORE DE DECISÃO AQUI
       else if (passoAtual === 'observacoes') {
         setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'A encriptar e a guardar os seus dados. Um momento, por favor...' }]);
-        
+
         try {
           const payloadDaTriagem = {
             ...novasRespostas,
             office_id: escritorio?.id || officeId // 👈 AGORA É DINÂMICO! Usa o ID vindo da URL
           };
 
-          const respostaApi = await fetch('http://localhost:3000/triagem', {
+          const respostaApi = await fetch(`${import.meta.env.VITE_API_URL}/triagem`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -235,16 +235,16 @@ function Triagem() {
   return (
     <div className="min-h-screen flex items-center justify-center p-2 sm:p-6 bg-[#ecece5]">
       <div className="chat-container bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden flex flex-col" style={{ height: '85vh' }}>
-        
+
         {/* CABEÇALHO DINÂMICO */}
         <div className="chat-header bg-white border-b border-gray-100 p-4 flex justify-between items-center z-10">
           <div className="flex items-center gap-3">
-            
+
             {/* Lógica da Imagem: Se tem logo, mostra. Se não tem, mostra a primeira letra do nome */}
             {escritorio?.logo_url ? (
-              <img 
-                src={escritorio.logo_url} 
-                alt="Logo do Escritório" 
+              <img
+                src={escritorio.logo_url}
+                alt="Logo do Escritório"
                 className="w-10 h-10 rounded-full object-cover border border-gray-200"
               />
             ) : (
@@ -260,7 +260,7 @@ function Triagem() {
               <span className="text-[10px] text-gray-400 font-bold uppercase mt-1">Powered by Nexum</span>
             </div>
           </div>
-          
+
           <div className="bg-[#d1d871]/20 text-[#13233d] text-[11px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-[#d1d871]">
             <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"></path></svg>
             Seguro
@@ -271,11 +271,10 @@ function Triagem() {
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto flex flex-col gap-5 bg-gray-50/50">
           {chatLog.map((msg) => (
             <div key={msg.id} className={`flex ${msg.remetente === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`px-5 py-3.5 rounded-2xl max-w-[85%] text-[15px] font-medium leading-relaxed shadow-sm ${
-                msg.remetente === 'user' 
-                  ? 'bg-[#3a4f99] text-white rounded-br-sm' 
-                  : 'bg-white border border-gray-200 text-[#13233d] rounded-bl-sm'
-              }`}>
+              <div className={`px-5 py-3.5 rounded-2xl max-w-[85%] text-[15px] font-medium leading-relaxed shadow-sm ${msg.remetente === 'user'
+                ? 'bg-[#3a4f99] text-white rounded-br-sm'
+                : 'bg-white border border-gray-200 text-[#13233d] rounded-bl-sm'
+                }`}>
                 {msg.texto}
               </div>
             </div>
@@ -285,13 +284,13 @@ function Triagem() {
 
         {/* RODAPÉ E CONTROLES */}
         <div className="p-4 sm:p-5 bg-white border-t border-gray-100">
-          
+
           {['nome', 'telefone', 'email', 'cpf', 'rg', 'cep', 'endereco_compl', 'empresa', 'funcao', 'salario', 'verbas_pendentes', 'observacoes'].includes(passoAtual) && (
             <div className="flex gap-2 w-full">
               {/* Botão de Voltar (Só aparece se houver histórico) */}
               {historicoPassos.length > 0 && (
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={desfazerUltimoPasso}
                   className="bg-white border border-gray-200 text-gray-500 p-3.5 rounded-xl hover:bg-gray-50 hover:text-[#3a4f99] transition-colors shadow-sm flex-shrink-0"
                   title="Corrigir resposta anterior"
@@ -301,11 +300,11 @@ function Triagem() {
               )}
 
               <form onSubmit={enviarTexto} className="flex gap-3 flex-1">
-                <input 
-                  type={getInputType()} 
-                  value={inputValue} 
+                <input
+                  type={getInputType()}
+                  value={inputValue}
                   onChange={handleInputChange}
-                  placeholder={getPlaceholder()} 
+                  placeholder={getPlaceholder()}
                   className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-[#13233d] focus:outline-none focus:ring-2 focus:ring-[#3a4f99] focus:bg-white transition-all placeholder:text-gray-400"
                   autoFocus
                 />
@@ -318,9 +317,9 @@ function Triagem() {
 
           {['data_admissao', 'data_demissao'].includes(passoAtual) && (
             <form onSubmit={enviarTexto} className="flex gap-3">
-              <input 
-                type="date" 
-                value={inputValue} 
+              <input
+                type="date"
+                value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-[#13233d] focus:outline-none focus:ring-2 focus:ring-[#3a4f99]"
                 autoFocus
@@ -334,14 +333,14 @@ function Triagem() {
               <label className="w-full p-5 bg-gray-50 border-2 border-dashed border-[#3a4f99]/30 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-[#3a4f99]/5 transition-colors group">
                 <svg className="w-8 h-8 text-[#3a4f99] mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                 <span className="text-sm font-bold text-[#13233d]">Anexar PDF ou Imagens</span>
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  multiple 
+                <input
+                  type="file"
+                  className="hidden"
+                  multiple
                   onChange={async (e) => {
                     const arquivos = e.target.files;
                     if (!arquivos || arquivos.length === 0) return;
-                    
+
                     // 1. Cria o pacote vazio
                     const formData = new FormData();
 
@@ -352,22 +351,22 @@ function Triagem() {
 
                     try {
                       // 3. Manda pro Back-end de verdade!
-                      const res = await fetch('http://localhost:3000/upload-documento', {
+                      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload-documento`, {
                         method: 'POST',
                         body: formData // Não precisa de "Content-Type", o navegador faz sozinho!
                       });
-                      
+
                       const data = await res.json();
 
                       // 4. O Node devolveu os nomes finais (ex: 1715456-doc1.pdf, 1715457-doc2.png)
                       // AGORA SIM mandamos a lista pro bot salvar no banco!
                       lidarComResposta(data.fileNames, `Anexei ${arquivos.length} documento(s)`);
-                      
+
                     } catch (err) {
                       console.error(err);
                       alert('Erro ao enviar arquivos para o servidor.');
                     }
-                  }} 
+                  }}
                 />
               </label>
               <button onClick={() => lidarComResposta('nenhum_arquivo', 'Não tenho arquivos agora')} className="w-full p-3 text-gray-400 hover:text-[#3a4f99] font-bold text-sm transition-colors">

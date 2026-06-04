@@ -32,16 +32,16 @@ function Dashboard() {
   const [ordenacao, setOrdenacao] = useState('recentes'); // 'recentes' ou 'prioridade'
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
 
- // Função que busca os casos blindados no Back-end
+  // Função que busca os casos blindados no Back-end
   const carregarCasos = async () => {
     try {
       // 1. Pega a "Pulseira VIP" (Token) que o Login salvou
       const token = localStorage.getItem('@Nexum:token');
 
       // Se você envia o filtro para o back-end, a URL muda dinamicamente:
-      const url = (filtroStatus && filtroStatus !== 'TODOS') 
-        ? `http://localhost:3000/api/cases?status=${filtroStatus}` 
-        : 'http://localhost:3000/api/cases';
+      const url = (filtroStatus && filtroStatus !== 'TODOS')
+        ? `${import.meta.env.VITE_API_URL}/api/cases?status=${filtroStatus}`
+        : `${import.meta.env.VITE_API_URL}/api/cases`;
 
       // 2. Bate na porta do servidor mostrando o crachá
       const res = await fetch(url, {
@@ -55,9 +55,9 @@ function Dashboard() {
       if (res.ok) {
         // 3. Lê o pacote que o Back-end mandou
         const json = await res.json();
-        
+
         // 4. Salva APENAS a lista de casos (json.data) no estado do React
-        setCases(json.data); 
+        setCases(json.data);
       } else if (res.status === 401) {
         // Se o token expirou ou é inválido
         console.error("Acesso Negado (401). Token ausente ou inválido.");
@@ -97,58 +97,58 @@ function Dashboard() {
   };
 
   const atualizarStatus = async (id: string, novoStatus: string) => {
-  try {
-    // 1. Pega o token salvo no login
-    const token = localStorage.getItem('@Nexum:token');
+    try {
+      // 1. Pega o token salvo no login
+      const token = localStorage.getItem('@Nexum:token');
 
-    const res = await fetch(`http://localhost:3000/api/cases/${id}`, {
-      method: 'PATCH',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` // 👈 Mostrando o crachá para o Back-end!
-      },
-      body: JSON.stringify({ status: novoStatus }),
-    });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/cases/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // 👈 Mostrando o crachá para o Back-end!
+        },
+        body: JSON.stringify({ status: novoStatus }),
+      });
 
-    if (res.ok) {
-      setCases(prev => prev.map(c => c.id === id ? { ...c, status: novoStatus } : c));
-      alert("Status updated successfully!");
-    } else if (res.status === 401) {
-      alert("Sessão expirada. Faça login novamente.");
+      if (res.ok) {
+        setCases(prev => prev.map(c => c.id === id ? { ...c, status: novoStatus } : c));
+        alert("Status updated successfully!");
+      } else if (res.status === 401) {
+        alert("Sessão expirada. Faça login novamente.");
+      }
+    } catch (err) {
+      console.error("Erro ao salvar status:", err);
     }
-  } catch (err) {
-    console.error("Erro ao salvar status:", err);
-  }
-};
+  };
 
-const salvarObservacao = async (id: string) => {
-  const textoParaSalvar = textosObservacao[id];
+  const salvarObservacao = async (id: string) => {
+    const textoParaSalvar = textosObservacao[id];
 
-  if (textoParaSalvar === undefined) return;
+    if (textoParaSalvar === undefined) return;
 
-  try {
-    // 1. Pega o token salvo no login
-    const token = localStorage.getItem('@Nexum:token');
+    try {
+      // 1. Pega o token salvo no login
+      const token = localStorage.getItem('@Nexum:token');
 
-    const res = await fetch(`http://localhost:3000/api/cases/${id}`, {
-      method: 'PATCH',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` 
-      },
-      body: JSON.stringify({ notes: textoParaSalvar }),
-    });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/cases/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ notes: textoParaSalvar }),
+      });
 
-    if (res.ok) {
-      setCases(prev => prev.map(c => c.id === id ? { ...c, notes: textoParaSalvar } : c));
-      alert("Observação salva com sucesso!");
-    } else if (res.status === 401) {
-      alert("Sessão expirada. Faça login novamente.");
+      if (res.ok) {
+        setCases(prev => prev.map(c => c.id === id ? { ...c, notes: textoParaSalvar } : c));
+        alert("Observação salva com sucesso!");
+      } else if (res.status === 401) {
+        alert("Sessão expirada. Faça login novamente.");
+      }
+    } catch (err) {
+      console.error("Erro ao salvar observação:", err);
     }
-  } catch (err) {
-    console.error("Erro ao salvar observação:", err);
-  }
-};
+  };
 
   // 1. Dicionário de Status
   const mapaStatus: Record<string, string> = {
@@ -228,8 +228,8 @@ const salvarObservacao = async (id: string) => {
   });
 
   const navigate = useNavigate();
-  
-   // Se tiver um caso aberto, esconde o Dashboard e mostra o Dossiê
+
+  // Se tiver um caso aberto, esconde o Dashboard e mostra o Dossiê
   if (casoAberto) {
     return <DetalhesDoCaso casoBruto={casoAberto} onVoltar={() => setCasoAberto(null)} />;
   }
@@ -246,14 +246,14 @@ const salvarObservacao = async (id: string) => {
 
           {/* Lado Direito: Perfil e Configurações responsivo */}
           <div className="w-full md:w-auto flex items-center justify-between md:justify-start gap-3 bg-white p-2 pr-4 rounded-full border border-gray-200 shadow-sm shrink-0">
-            
+
             {/* Agrupamento do Avatar e Nome para ficarem juntos na esquerda no mobile */}
             <div className="flex items-center gap-3">
               {/* Avatarzinho (Iniciais) */}
               <div className="w-10 h-10 bg-[#13233d] text-white rounded-full flex items-center justify-center font-bold tracking-widest shadow-inner shrink-0">
                 EM
               </div>
-              
+
               {/* Nome e Cargo (Agora sempre visível) */}
               <div className="flex flex-col mr-2">
                 <span className="text-sm font-bold text-[#13233d] leading-none">Ellen Monroe</span>
@@ -265,12 +265,12 @@ const salvarObservacao = async (id: string) => {
             <div className="hidden md:block w-px h-8 bg-gray-100 mx-1"></div>
 
             {/* Botão de Configurações Elegante (Fica na extrema direita no mobile) */}
-            <button 
+            <button
               onClick={() => navigate('/configuracoes')}
               className="p-2 text-gray-400 hover:text-[#13233d] hover:bg-gray-50 rounded-full transition-all duration-300 shrink-0"
               title="Configurações do Sistema"
             >
-              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" /></svg>
             </button>
 
           </div>
@@ -307,7 +307,7 @@ const salvarObservacao = async (id: string) => {
             <option value="GERAL_TRABALHISTA">Geral Trabalhista</option>
           </select>
 
-            {/* Filtro de Status */}
+          {/* Filtro de Status */}
           <select
             value={filtroStatus}
             onChange={(e) => setFiltroStatus(e.target.value)}
@@ -529,8 +529,7 @@ const salvarObservacao = async (id: string) => {
                                       <td className="px-4 py-3 text-right">
                                         {resp.field_name === 'upload_docs' ? (
                                           <a
-                                            // ajustar essa URL para usar a variável do .env futuramente
-                                            href={`http://localhost:3000/ficheiros/${resp.value}`}
+                                            href={`${import.meta.env.VITE_API_URL}/ficheiros/${resp.value}`}
                                             target="_blank"
                                             rel="noreferrer"
                                             className="inline-flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-lg text-sm bg-blue-50 text-[#3a4f99] hover:bg-[#3a4f99] hover:text-white transition-colors"

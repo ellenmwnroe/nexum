@@ -23,8 +23,27 @@ interface CaseItem {
   created_at: string;
 }
 
+interface LawyerProfile {
+  name: string;
+  email: string;
+  avatar_url?: string;
+  role?: string;  
+}
+
+export const formatarCargo = (role?: string) => {
+  switch (role) {
+    case 'ADMIN': return 'Administrador(a)';
+    case 'LAWYER': return 'Advogado(a)';
+    case 'INTERN': return 'Estagiário(a)';
+    case 'PARALEGAL': return 'Assistente Paralegal';
+    case 'PARTNER': return 'Sócio(a)';
+    default: return role || 'Advogado(a)';
+  }
+};
+
 function Dashboard() {
   const [cases, setCases] = useState<CaseItem[]>([]);
+  const [perfil, setPerfil] = useState<LawyerProfile | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [casoAberto, setCasoAberto] = useState<CaseItem | null>(null);
   const [textosObservacao, setTextosObservacao] = useState<Record<string, string>>({});
@@ -32,9 +51,34 @@ function Dashboard() {
   const [ordenacao, setOrdenacao] = useState('recentes'); 
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
 
+  // O TOKEN FICA SOLTO AQUI PARA TODAS AS FUNÇÕES PODEREM USAR
+  const token = localStorage.getItem('@Nexum:token');
+
+  // 1. USE EFFECT DO PERFIL (Solto na raiz do componente)
+  useEffect(() => {
+    async function carregarPerfil() {
+      if (!token) return; 
+      
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/lawyers/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setPerfil(data); 
+        }
+      } catch (error) {
+        console.error("Erro ao buscar perfil do advogado:", error);
+      }
+    }
+    
+    carregarPerfil();
+  }, [token]);
+
+  // 2. FUNÇÃO DE CARREGAR CASOS 
   const carregarCasos = async () => {
     try {
-      const token = localStorage.getItem('@Nexum:token');
       const url = (filtroStatus && filtroStatus !== 'TODOS')
         ? `${import.meta.env.VITE_API_URL}/api/cases?status=${filtroStatus}`
         : `${import.meta.env.VITE_API_URL}/api/cases`;
@@ -59,6 +103,7 @@ function Dashboard() {
     }
   };
 
+  // 3. USE EFFECT DOS CASOS
   useEffect(() => {
     carregarCasos();
   }, [filtroStatus]);
@@ -88,8 +133,6 @@ function Dashboard() {
 
   const atualizarStatus = async (id: string, novoStatus: string) => {
     try {
-      const token = localStorage.getItem('@Nexum:token');
-
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/cases/${id}`, {
         method: 'PATCH',
         headers: {
@@ -115,7 +158,6 @@ function Dashboard() {
     if (textoParaSalvar === undefined) return;
 
     try {
-      const token = localStorage.getItem('@Nexum:token');
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/cases/${id}`, {
         method: 'PATCH',
         headers: {
@@ -170,6 +212,7 @@ function Dashboard() {
     'nao_faz': 'Não faz'
   };
 
+  
   const formatarResposta = (texto?: string) => {
     if (!texto) return 'Não informado';
     const chave = texto.toLowerCase();
@@ -200,6 +243,12 @@ function Dashboard() {
     return <DetalhesDoCaso casoBruto={casoAberto} onVoltar={() => setCasoAberto(null)} />;
   }
 
+  // Puxa o nome dinâmico 
+  const nomeUsuarioLogado = perfil?.name || "Carregando...";
+  
+  // Calcula as iniciais dinamicamente 
+  const iniciaisUsuarioLogado = nomeUsuarioLogado.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
@@ -212,12 +261,22 @@ function Dashboard() {
           </div>
 
           <div className="flex items-center gap-4 bg-white p-2 pr-4 rounded-full border border-slate-200 shadow-sm">
-            <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold tracking-widest shadow-inner shrink-0">
-              EM
-            </div>
+            {perfil?.avatar_url ? (
+              <img 
+                src={perfil.avatar_url} 
+                alt={`Foto de perfil de ${nomeUsuarioLogado}`}
+                className="w-10 h-10 rounded-full object-cover shadow-inner shrink-0 border border-slate-100"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold tracking-widest shadow-inner shrink-0">
+                {iniciaisUsuarioLogado}
+              </div>
+            )}
             <div className="flex flex-col mr-2">
-              <span className="text-sm font-bold text-slate-900 leading-none">Ellen Monroe</span>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Admin</span>
+              <span className="text-sm font-bold text-slate-900 leading-none">{nomeUsuarioLogado}</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">
+                {formatarCargo(perfil?.role)}
+              </span>
             </div>
             <div className="w-px h-8 bg-slate-100 mx-1"></div>
             <button

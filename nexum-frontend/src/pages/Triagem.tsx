@@ -98,21 +98,30 @@ function Triagem() {
   // Busca os dados do escritório assim que a página carrega
   useEffect(() => {
     async function carregarEscritorio() {
-      if (!officeId) return;
+      if (!officeId) {
+        console.error("⛔ ALERTA: O officeId não está na URL!");
+        return;
+      }
+      
       try {
-        // Você vai precisar criar essa rota pública GET /api/offices/:id/public no Back-end!
+        console.log(`Buscando dados na URL: ${import.meta.env.VITE_API_URL}/api/offices/${officeId}/public`);
+        
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/offices/${officeId}/public`);
+        
         if (res.ok) {
           const data = await res.json();
+          console.log("✅ DADOS QUE VIERAM DO BANCO:", data); 
           setEscritorio(data);
+        } else {
+          console.error(`❌ ERRO NA API: O servidor respondeu com status ${res.status}`);
         }
       } catch (err) {
-        console.error("Erro ao carregar dados do escritório:", err instanceof Error ? err.message : String(err));
+        console.error("🔥 ERRO DE REDE/CORS:", err instanceof Error ? err.message : String(err));
       }
     }
     carregarEscritorio();
   }, [officeId]);
-
+  
   useEffect(() => chatFimRef.current?.scrollIntoView({ behavior: 'smooth' }), [chatLog]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

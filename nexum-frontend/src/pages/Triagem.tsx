@@ -243,17 +243,11 @@ function Triagem() {
             {/* Lógica da Imagem: Se tem logo, mostra. Se não tem, mostra a primeira letra do nome */}
             {escritorio?.logo_url ? (
               <img
-                // Fazemos uma checagem inteligente: 
-                // Se a URL já vier completa do banco (começando com http), usa ela.
-                // Se for só o nome do arquivo, junta com a URL da sua API + a pasta de arquivos.
-                src={
-                  escritorio.logo_url.startsWith('http') 
-                    ? escritorio.logo_url 
-                    : `${import.meta.env.VITE_API_URL}/ficheiros/${escritorio.logo_url}`
-                }
+                src={escritorio.logo_url}
                 alt="Logo do Escritório"
-                className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                className="w-10 h-10 rounded-full object-cover border border-slate-200"
               />
+
             ) : (
               <div className="w-10 h-10 bg-[#3a4f99] rounded-full flex items-center justify-center font-bold text-[#d1d871] text-lg shadow-inner">
                 {escritorio?.name ? escritorio.name.charAt(0).toUpperCase() : 'A'}

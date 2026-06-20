@@ -143,7 +143,7 @@ function Triagem() {
     setChatLog(prev => prev.slice(0, -2));
   };
 
-  const lidarComResposta = (valorParaBanco: string, textoParaChat: string) => {
+const lidarComResposta = (valorParaBanco: string, textoParaChat: string) => {
     let textoExibido = textoParaChat;
     let valorLimpoParaBanco = valorParaBanco;
 
@@ -172,6 +172,10 @@ function Triagem() {
     setTimeout(async () => {
       setHistoricoPassos(prev => [...prev, passoAtual]);
 
+      // ==========================================
+      // 🌳 ÁRVORE DE DECISÃO DO ROBÔ (FLUXO COMPLETO)
+      // ==========================================
+      
       if (passoAtual === 'lgpd') {
         if (valorParaBanco === 'nao') {
           setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Compreendo. Atendimento encerrado por segurança.' }]);
@@ -180,16 +184,95 @@ function Triagem() {
           setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Excelente! Qual é o seu nome completo?' }]);
           setPassoAtual('nome');
         }
+      } 
+      else if (passoAtual === 'nome') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Muito prazer! Qual é o seu melhor número de WhatsApp?' }]);
+        setPassoAtual('telefone');
       }
-      // ... (Omiti as outras validações da árvore de decisão aqui visualmente, MAS MANTENHA AS SUAS ORIGINAIS)
-      // COLE A SUA ÁRVORE DE DECISÃO AQUI
+      else if (passoAtual === 'telefone') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Obrigado. Para fins de cadastro jurídico, por favor digite o seu CPF:' }]);
+        setPassoAtual('cpf');
+      }
+      else if (passoAtual === 'cpf') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Certo. Qual é o nome da empresa contra a qual você deseja abrir a reclamação?' }]);
+        setPassoAtual('empresa');
+      }
+      else if (passoAtual === 'empresa') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Qual era a sua função/cargo nessa empresa?' }]);
+        setPassoAtual('funcao');
+      }
+      else if (passoAtual === 'funcao') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Qual era o seu último salário? (Pode arredondar)' }]);
+        setPassoAtual('salario');
+      }
+      else if (passoAtual === 'salario') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Quando você começou a trabalhar lá? (Data de admissão)' }]);
+        setPassoAtual('data_admissao');
+      }
+      else if (passoAtual === 'data_admissao') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Qual é a sua situação atual com essa empresa?' }]);
+        setPassoAtual('situacao');
+      }
+      else if (passoAtual === 'situacao') {
+        // Se a pessoa respondeu que ainda trabalha, pula a pergunta de FGTS/Rescisão
+        if (valorParaBanco === 'ainda_trabalhando') {
+          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Entendi. Você trabalhava com a carteira assinada (CLT)?' }]);
+          setPassoAtual('carteira_assinada');
+        } else {
+          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Quando ocorreu o fim do vínculo? (Data de demissão/saída)' }]);
+          setPassoAtual('data_demissao');
+        }
+      }
+      else if (passoAtual === 'data_demissao') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Você trabalhava com a carteira assinada (CLT)?' }]);
+        setPassoAtual('carteira_assinada');
+      }
+      else if (passoAtual === 'carteira_assinada') {
+        if (valorParaBanco === 'sim') {
+          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Sobre as horas extras, qual era a sua situação?' }]);
+          setPassoAtual('horas_extras');
+        } else {
+          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Mesmo sem carteira, você tinha horário fixo e recebia ordens diretas de um chefe? (Subordinação)' }]);
+          setPassoAtual('subordinacao');
+        }
+      }
+      else if (passoAtual === 'subordinacao') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Sobre as horas extras, qual era a sua situação?' }]);
+        setPassoAtual('horas_extras');
+      }
+      else if (passoAtual === 'horas_extras') {
+        if (novasRespostas['situacao'] !== 'ainda_trabalhando') {
+          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'A empresa pagou a sua rescisão e depositou o FGTS corretamente?' }]);
+          setPassoAtual('fgts_rescisao');
+        } else {
+          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Existem outras verbas pendentes ou promessas não cumpridas pela empresa?' }]);
+          setPassoAtual('verbas_pendentes');
+        }
+      }
+      else if (passoAtual === 'fgts_rescisao') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Existem outras verbas pendentes ou promessas não cumpridas pela empresa?' }]);
+        setPassoAtual('verbas_pendentes');
+      }
+      else if (passoAtual === 'verbas_pendentes') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Gostaria de anexar algum documento, print de conversa do WhatsApp ou foto para o advogado avaliar?' }]);
+        setPassoAtual('upload_docs');
+      }
+      else if (passoAtual === 'upload_docs') {
+        setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Por fim, descreva com suas palavras qual é o principal problema ou dúvida que você tem:' }]);
+        setPassoAtual('observacoes');
+      }
+      
+      // ==========================================
+      // FINALIZAÇÃO E ENVIO PARA A API
+      // ==========================================
+      
       else if (passoAtual === 'observacoes') {
         setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'A encriptar e a guardar os seus dados. Um momento, por favor...' }]);
 
         try {
           const payloadDaTriagem = {
             ...novasRespostas,
-            office_id: escritorio?.id || officeId // 👈 AGORA É DINÂMICO! Usa o ID vindo da URL
+            office_id: escritorio?.id || officeId
           };
 
           const respostaApi = await fetch(`${import.meta.env.VITE_API_URL}/triagem`, {
@@ -204,11 +287,10 @@ function Triagem() {
             throw new Error('Falha ao comunicar com o servidor');
           }
 
-          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Muito obrigado! A sua ficha foi gerada com sucesso e enviada ao advogado de forma segura.' }]);
+          setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Muito obrigado! A sua ficha foi gerada com sucesso e enviada ao advogado de forma segura. Entraremos em contato em breve.' }]);
           setPassoAtual('fim');
 
         } catch (error_) {
-          // Tratamento de erro nos moldes exigidos pelo SonarQube
           console.error('Erro no envio da triagem:', error_ instanceof Error ? error_.message : String(error_));
           setChatLog(prev => [...prev, { id: Date.now(), remetente: 'bot', texto: 'Houve um problema de conexão. A equipe técnica já foi notificada.' }]);
         }
